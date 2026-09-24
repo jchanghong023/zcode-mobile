@@ -1,6 +1,7 @@
 version: 1
 
 # 存量模块先标记为 legacy；新模块或完成迁移的模块设置 managed: true。
+# 仓库已精简为 Android 远程壳：只保留 web UI 构建链（web → ui/client/shared/services/rpc/provider → model-option-map）与 apps/android。
 modules:
   - id: rpc
     roots: [packages/rpc/src]
@@ -10,9 +11,6 @@ modules:
     managed: false
   - id: provider
     roots: [packages/provider/src]
-    managed: false
-  - id: provider-node
-    roots: [packages/provider-node/src]
     managed: false
   - id: services
     roots: [packages/services/src]
@@ -34,26 +32,11 @@ modules:
   - id: client
     roots: [packages/client/src]
     managed: false
-  - id: server
-    roots: [packages/server/src]
-    managed: false
-  - id: zcode-server-cli
-    roots: [packages/zcode-server-cli/src]
-    managed: false
   - id: ui
     roots: [packages/ui/src]
     managed: false
   - id: web
     roots: [packages/web/src]
-    managed: false
-  - id: desktop
-    roots: [packages/desktop/src]
-    managed: false
-  - id: formal-proof
-    roots: [packages/formal-proof/src]
-    managed: false
-  - id: zcode-cli
-    roots: [apps/zcode-cli]
     managed: false
   - id: android
     roots: [apps/android]

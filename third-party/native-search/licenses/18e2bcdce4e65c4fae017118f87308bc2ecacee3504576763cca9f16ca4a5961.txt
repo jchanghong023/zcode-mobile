@@ -1,2 +1,0 @@
-/* 7zTypes.h -- Basic types
-: Igor Pavlov : Public domain */

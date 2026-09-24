@@ -15,18 +15,13 @@ description = "Run the repository bootstrap script after installing dependencies
 depends = ["install"]
 run = "mise exec -- node scripts/mise-run.mjs pnpm bootstrap"
 
-[tasks.dev]
-description = "Start the desktop app in an isolated local test environment."
-env = { ZCODE_DATA_BASE_DIR = "{{env.HOME}}/.zcode-dev-home" }
-run = "mise exec -- node scripts/mise-run.mjs pnpm dev:desktop:test"
-
-[tasks.dev-desktop-prod]
-description = "Start the desktop app against the production environment."
-run = "mise exec -- node scripts/mise-run.mjs pnpm dev:desktop:prod"
-
 [tasks.dev-web]
-description = "Start the server and web client dev servers."
+description = "Start the web client dev server."
 run = "mise exec -- node scripts/mise-run.mjs pnpm dev:web"
+
+[tasks.build-android]
+description = "Build the Android APK (web production build + cap sync + gradle)."
+run = "mise exec -- node scripts/mise-run.mjs pnpm build:android"
 
 [tasks.typecheck]
 description = "Run the root TypeScript project references check."

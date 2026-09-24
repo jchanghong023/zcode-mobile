@@ -1,2 +1,0 @@
-/* Precomp.h -- precompilation file
-: Igor Pavlov : Public domain */

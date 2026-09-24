@@ -1,2 +1,0 @@
-/* RotateDefs.h -- Rotate functions
-2023-06-18 : Igor Pavlov : Public domain */

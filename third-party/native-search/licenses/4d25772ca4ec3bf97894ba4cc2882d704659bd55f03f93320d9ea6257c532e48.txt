@@ -1,2 +1,0 @@
-/* CpuArch.h -- CPU specific code
-Igor Pavlov : Public domain */
