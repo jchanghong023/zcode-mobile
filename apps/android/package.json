@@ -1,0 +1,20 @@
+{
+  "name": "@zcode/android",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:apk": "node scripts/build.mjs --apk",
+    "sync": "node scripts/build.mjs --sync-only",
+    "open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@types/node": "^25.5.0",
+    "@zcode/shared": "workspace:*"
+  }
+}

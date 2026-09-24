@@ -55,6 +55,9 @@ modules:
   - id: zcode-cli
     roots: [apps/zcode-cli]
     managed: false
+  - id: android
+    roots: [apps/android]
+    managed: false
 
 global:
   maxFileLines: 400

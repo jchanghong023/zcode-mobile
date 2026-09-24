@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#161616</color>
+    <color name="colorPrimaryDark">#161616</color>
+    <!-- 与 packages/web 默认主题 zai-dark 的背景色一致，见 capacitor.config.ts。 -->
+    <color name="launchBackground">#161616</color>
+</resources>

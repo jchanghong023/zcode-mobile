@@ -29,5 +29,5 @@
       "entry": ["src/browser-client.ts"]
     }
   },
-  "ignore": [".agents/**", "docs/**", "packages/ui/src/components/**"]
+  "ignore": [".agents/**", "docs/**", "packages/ui/src/components/**", "apps/android/android/**"]
 }
