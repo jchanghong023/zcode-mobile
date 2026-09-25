@@ -1,211 +1,119 @@
-# ZCode
-
 <div align="center">
-  <img src="public/logo/icons/1024x1024.png" alt="ZCode" width="128" height="128" />
+  <img src="apps/android/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="ZCode Mobile" width="128" height="128" />
+  <h1>ZCode Mobile</h1>
+  <p><b>ZCode, in your pocket.</b><br/>The native Android app for the ZCode AI coding agent.</p>
+  <p>
+    <a href="https://www.android.com/"><img src="https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white" alt="Platform: Android" /></a>
+    <a href="https://capacitorjs.com"><img src="https://img.shields.io/badge/Capacitor-8-119EFF?logo=capacitor&logoColor=white" alt="Capacitor 8" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0" /></a>
+    <a href="https://github.com/zai-org/ZCode"><img src="https://img.shields.io/badge/based%20on-ZCode-181717?logo=github" alt="Based on ZCode" /></a>
+  </p>
+  <p>
+    <a href="README.md">简体中文</a> | English
+  </p>
 </div>
+
 <p align="center">
-  <a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=47ag983c-8fcb-4d6d-814b-5395193a712c&amp;qr_code=true">Feishu community</a> ·
-  <a href="https://discord.gg/z9aBcQXZQ3">Discord</a>
+  <img src="docs/screenshots/projects.jpg" width="260" alt="Projects: task sidebar" />
+  &nbsp;
+  <img src="docs/screenshots/chat.jpg" width="260" alt="Chat: remote session" />
+  &nbsp;
+  <img src="docs/screenshots/settings.jpg" width="260" alt="Settings: remote connection" />
 </p>
-<p align="center">
-  <a href="README.md">简体中文</a> | English
-</p>
 
-ZCode is an AI coding workspace with desktop, browser, and terminal interfaces. This repository contains the clients, backend services, shared UI, and Agent CLI and runtime source code.
+**ZCode Mobile** turns [ZCode](https://github.com/zai-org/ZCode) into a real Android app. Instead of wrangling a browser tab, you get a native shell with the entire UI bundled inside the APK: pages render from on-device assets with zero network round-trips, cold starts are instant, and scrolling stays smooth where the mobile web stumbles. Your desktop remains the execution host — your phone watches, steers, and takes over your AI coding sessions from anywhere.
 
-## Updates
+> **Heads-up:** this is a community-driven, unofficial client, not affiliated with Z.ai or the ZCode team. You need your own ZCode account, and a remote session paired from the desktop app.
 
-- 2026-9-23: Updated to ZCode v3.14.3.
+## ✨ Highlights
 
-## Setup
+- 📦 **Zero-download UI** — the full web UI is compiled into the APK. No page fetches, no reload spinners, no "tab died in the background".
+- ⚡ **Tuned for speed** — asynchronous WebView warm-up, renderer pre-warm, and preconnect/QUIC hints to the official domain make cold start and first paint fast; shipped assets have sourcemaps stripped.
+- 🎯 **Direct, no middleman** — API, WebSocket, and OAuth all connect straight to `https://zcode.z.ai`. The shell never proxies, rewrites, or caches the protocol.
+- 📱 **Feels native** — back-key history navigation, downloads via the system DownloadManager, keyboard insets capped at 45% of the screen, and a native Projects / Chat / Settings bottom bar.
+- 🔗 **Deep-link pairing** — grab a `/remote/v4?...` link from the desktop app's remote entry and the app opens straight into that session; cold-starting from the launcher restores the last one.
 
-Install Git, Node.js **24.14.0**, and pnpm **10.33.2**. [mise.toml](mise.toml) is the source of truth for tool versions. Run all development and packaging commands below from the repository root.
+## 🧭 How It Works
+
+```mermaid
+flowchart LR
+    A["📱 ZCode Mobile<br/>native shell · UI bundled in the APK"]
+    S["☁️ zcode.z.ai<br/>official service"]
+    D["🖥️ Desktop ZCode<br/>execution host"]
+
+    A -- "same-origin /api · /ws<br/>direct connection" --> S
+    A <-- "remote session relay" --> D
+```
+
+The WebView runs the locally bundled `packages/web` build under the official same-origin identity (`https://zcode.z.ai`): same-origin `/api` and `/ws` requests are let through by the native layer and reach the official service via the WebView network stack, while every other path is served from local assets (with SPA fallback). Nothing runs on the phone — no ZCode Server, no Agent Runtime, no Node.js. Sign-in, sessions, and data never touch a third-party server.
+
+## 🛠️ Build It Yourself
+
+**Requirements**
+
+- Node.js 24 and pnpm 10 — versions are pinned in [mise.toml](mise.toml) (mise users: `mise run bootstrap`)
+- JDK 21 and the Android SDK (Android Studio is the easiest way to get both)
+
+**Build the debug APK**
 
 ```bash
+git clone https://github.com/jchanghong023/zcode-mobile.git
+cd zcode-mobile
+
+# Install workspace dependencies and build the dependency chain
 pnpm bootstrap
+
+# Web production build + cap sync + Gradle assembleDebug
+pnpm build:android
 ```
 
-`pnpm bootstrap` installs workspace dependencies, prepares local desktop runtime assets, and runs `build:bootstrap`.
+The APK lands at `apps/android/android/app/build/outputs/apk/debug/app-debug.apk`. Install it, then pair it with your desktop via a remote link. Changed the React UI? Re-run `pnpm build:android` to refresh the packaged assets.
 
-The Agent CLI and runtime source code lives in [apps/zcode-cli/](apps/zcode-cli/) as a regular directory included when you clone this repository. No separate checkout or Git submodule initialization is required.
+**Development commands** (run from the repository root)
 
-Additional setup and build commands:
+| Command                | Purpose                                        |
+| ---------------------- | ---------------------------------------------- |
+| `pnpm dev:web`         | Develop the Web UI in a browser                |
+| `pnpm typecheck`       | Type checking                                  |
+| `pnpm lint`            | Lint (`pnpm lint:fix` to auto-fix)             |
+| `pnpm fmt:check`       | Format check                                   |
+| `pnpm build`           | Recursively build all workspace packages       |
+| `pnpm build:android`   | Build the debug APK                            |
+| `pnpm verify:pre-push` | Pre-push checks (lint and architecture checks) |
 
-| Command                        | Purpose                                                                                                                             |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm install`                 | Install dependencies                                                                                                                |
-| `pnpm prepare:desktop-runtime` | Prepare desktop runtime assets, including remote assets by default                                                                  |
-| `pnpm prepare:remote-assets`   | Prepare remote runtime assets separately                                                                                            |
-| `pnpm bootstrap:with-remote`   | Set up dependencies and local and remote assets, then build the relevant packages sequentially; skip the desktop application bundle |
-| `pnpm build`                   | Recursively run each workspace package's build script, including its asset preparation steps                                        |
+## 🗂️ Repository Layout
 
-The default `bootstrap` skips remote asset preparation and is suitable for local desktop development. Run the corresponding preparation command when working with remote workspaces or validating remote distribution assets.
+This repository is a slimmed-down fork of [zai-org/ZCode](https://github.com/zai-org/ZCode) `v3.14.3` that keeps only the web UI build chain the Android app needs; the desktop app, server, and Agent CLI are out of scope here.
 
-## Development and Usage
+| Directory                                                                                                                   | Responsibility                                                 |
+| --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `apps/android`                                                                                                              | Android host (Capacitor config, native project, build scripts) |
+| `packages/web`                                                                                                              | Browser/WebView UI entry (its build output ships in the APK)   |
+| `packages/ui`                                                                                                               | Shared React components, hooks, and Zustand store              |
+| `packages/client`, `packages/services`, `packages/shared`, `packages/rpc`, `packages/provider`, `packages/model-option-map` | Runtime dependency chain of the UI                             |
+| `scripts`, `config`                                                                                                         | Build/maintenance scripts and built-in configuration           |
 
-### Desktop
+## ❓ FAQ
 
-```bash
-pnpm dev:desktop
+**Does the AI run on my phone?**
+No. The desktop app stays the execution host; the app reaches it through the official relay, exactly like the official remote page does.
 
-# Use the test environment
-pnpm dev:desktop:test
-```
+**Where do pages load from?**
+From the APK itself. Only `/api`, `/ws`, and OAuth hit the network, and they go straight to the official service.
 
-`pnpm dev:desktop` defaults to `pnpm dev:desktop:prod` and uses production service configuration. The startup script prepares local runtime assets, builds the desktop Agent, then starts Electron and source watchers.
+**Is this an official ZCode product?**
+No. It's an open-source community client. The "ZCode" name and related rights belong to their owner.
 
-Set `ZCODE_DATA_BASE_DIR` to use a separate development data directory. For example, on macOS / Linux:
+**What do I need to use it?**
+A working ZCode account and a remote pairing link produced by the desktop app's remote entry.
 
-```bash
-ZCODE_DATA_BASE_DIR="$HOME/.zcode-dev-home" pnpm dev:desktop:test
-```
+## 🔎 Relationship to Upstream
 
-### Web Development
+- [FORK.md](FORK.md) records the upstream baseline, the effective differences from upstream, and the sync policy; [apps/android/SPEC.md](apps/android/SPEC.md) is the Android shell behavior spec.
+- Upstream updates are ported selectively into the retained packages by comparison; the repository is never overwritten wholesale.
 
-Use development mode when editing Web or backend source code:
+## 📄 License & Notices
 
-```bash
-pnpm dev:web
-
-# Set the backend workspace (macOS / Linux)
-ZCODE_SERVER_WORKSPACE=/path/to/project pnpm dev:web
-```
-
-This starts both the Web development server (default: `http://localhost:5173`) and the backend (default: `http://localhost:3030`). Open the Web development server in your browser. `/ws` and general `/api` requests are proxied to the local backend; `/api/v1/oauth/token` is proxied separately to the configured product service.
-
-After changing Agent source code, run `pnpm --filter @zcode/cli... build` and restart the service. To validate the complete distribution, extract and run it as described under Packaging → ZCode CLI distribution below.
-
-### ZCode CLI distribution
-
-The command-line distribution includes the TUI, Web client, and Agent behind one `zcode` command. With no arguments it starts the TUI; a leading `--web` starts Web mode; all other arguments go to the existing Agent CLI. Both modes run locally without Electron.
-
-```bash
-# Start the terminal UI by default
-zcode
-
-# Start the Web interface
-zcode --web
-
-# Set the project and port without opening a browser automatically
-zcode --web --workspace /path/to/project --port 3030 --no-open
-
-# Show CLI or Web options
-zcode --help
-zcode --web --help
-```
-
-In Web mode, it uses the current directory as the workspace, listens on `127.0.0.1` without token authentication by default, selects an available port, and opens a browser. Use the URL printed in the terminal and press `Ctrl+C` to stop the service. For LAN access, use `--host 0.0.0.0`; listening on a non-local address generates an access token by default. Use the token-bearing URL printed in the terminal. Set a token with `--token`, or disable token authentication with `--no-token`.
-
-When starting the general Web service's HTTP entry directly, configure API/WebSocket authentication with `ZCODE_SERVER_AUTH_TOKEN`. When creating the service programmatically, use the `authToken` option.
-
-See Packaging below for build instructions. `pnpm build:zcode` only creates the distribution; it does not replace an existing `zcode` on `PATH`. If the command still points to an older installation or another checkout, check it with `command -v zcode` on macOS / Linux or `where.exe zcode` on Windows.
-
-### CLI Source Development
-
-Use the source entry when developing the TUI or Agent:
-
-```bash
-pnpm --filter @zcode/cli dev --help
-pnpm --filter @zcode/cli dev
-
-# Build the CLI and its workspace dependencies
-pnpm --filter @zcode/cli... build
-node apps/zcode-cli/packages/cli/dist/zcode.cjs --help
-```
-
-This entry runs the Agent CLI directly and does not handle the distribution's `--web` switch. Use `pnpm dev:web` for Web development, or the extracted `bin/zcode.mjs` shown below to test the unified command.
-
-## Configuration
-
-The root [.env.example](.env.example) provides sample service URLs and build configuration. Copy it to `.env` as needed and place local overrides in `.env.local`. Select the Desktop development environment with `dev:desktop:test` or `dev:desktop:prod`.
-
-| Setting                              | Purpose                                                                                 |
-| ------------------------------------ | --------------------------------------------------------------------------------------- |
-| `ZCODE_DATA_BASE_DIR`                | Base directory for application data, stored under its `.zcode/` subdirectory            |
-| `ZCODE_SERVER_WORKSPACE`             | Workspace path for the Web backend                                                      |
-| `ZCODE_BUILTIN_PROVIDER_CONFIG_FILE` | Path to a local provider configuration file; uses the built-in configuration when unset |
-| `ZCODE_DIST_BASE_URL`                | Download base URL used by the CLI distribution installer                                |
-
-Runtime variables can be set explicitly in the environment of the startup command. See [config/README.md](config/README.md) for the default configuration shipped with the client.
-
-## Packaging
-
-See [third-party/README.md](third-party/README.md) for notice generation, distribution checks, and where the notices are included in each distribution.
-
-### Desktop
-
-```bash
-pnpm bundle:desktop
-
-# Set the target platform and CPU architecture
-pnpm bundle:desktop -- --os win --arch x64
-
-pnpm bundle:desktop -- --help
-```
-
-The default target is macOS arm64, and the default output directory is `packages/desktop/dist/`. `--os` accepts `mac`, `win`, or `linux`; `--arch` accepts `x64` or `arm64`. Packaging and signing require the tools and configuration for the target platform.
-
-### ZCode CLI distribution
-
-Run `pnpm build:zcode` to build the CLI/TUI, backend, and Web client, collect the TUI native libraries, workers, and runtime dependencies, then assemble the distribution. Running the distribution still requires Node.js; use the version specified in `mise.toml`.
-
-Before packaging, set the download base URL with `ZCODE_DIST_BASE_URL` in `.env`, `.env.local`, or the process environment, or pass it through `--base-url`. The URL below is a placeholder; replace it with your hosting URL when publishing:
-
-```bash
-pnpm build:zcode --base-url https://downloads.example.com/zcode/
-
-# When ZCODE_DIST_BASE_URL is already configured
-pnpm build:zcode
-
-# Repackage existing Agent, backend, and Web build outputs
-pnpm build:zcode --skip-build
-
-# Show options for the version, output directory, and more
-pnpm build:zcode --help
-```
-
-The version defaults to the root `package.json` version. Output is written to `dist/zcode/`:
-
-- `releases/<version>/zcode-<version>.tar.gz`: runtime package.
-- `releases/<version>/sha256.txt`: checksum file.
-- `latest.json` and `install.sh`: version index and installer.
-
-Upload the entire directory to the configured download base URL. The installer downloads the runtime package from that URL, installs it to `~/.zcode/runtime` by default, and creates the `zcode` command in `~/.local/bin`. Override these directories with `ZCODE_DIST_HOME` and `ZCODE_DIST_BIN_DIR`, respectively.
-
-Existing Lite users should switch to the new build command, environment variables, and installer. Installation does not remove old Lite directories or migrate/delete session data.
-
-To test a packaged build locally, extract and run it directly without uploading or installing it:
-
-```bash
-zcode_version=$(node -p "require('./dist/zcode/latest.json').version")
-mkdir -p dist/zcode/debug
-tar -xzf "dist/zcode/releases/$zcode_version/zcode-$zcode_version.tar.gz" \
-  -C dist/zcode/debug
-# Start the TUI by default
-node dist/zcode/debug/zcode/bin/zcode.mjs
-
-# Start Web mode
-node dist/zcode/debug/zcode/bin/zcode.mjs --web \
-  --workspace "$PWD" --port 3030 --no-open
-```
-
-Open `http://127.0.0.1:3030` to validate the complete flow, with one backend serving the Web pages and running the Agent. The port must be available; if `pnpm dev:web` is already running, choose another `--port`.
-
-## Repository Structure
-
-| Directory                                            | Responsibility                                                                          |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `packages/desktop`                                   | Electron Main, Host, Renderer, and desktop packaging                                    |
-| `packages/web`                                       | Web client                                                                              |
-| `packages/server`                                    | HTTP / WebSocket services and remote connections                                        |
-| `packages/zcode-server-cli`                          | Standalone server startup and process management                                        |
-| `packages/ui`                                        | Shared React components, hooks, and Zustand state                                       |
-| `packages/services`                                  | Business services and persistence                                                       |
-| `packages/shared`, `packages/rpc`, `packages/client` | Shared protocols and types, RPC framework, and Agent client SDK                         |
-| `packages/provider`, `packages/provider-node`        | Common provider capabilities and Node implementations                                   |
-| `apps/zcode-cli`                                     | Agent CLI, TUI, runtime, and tools                                                      |
-| `scripts`, `config`, `third-party`                   | Build and maintenance scripts, built-in configuration, and third-party notice materials |
-
-## Project Notice
-
-See [NOTICE.md](NOTICE.md) for feature and promotion scope, maintenance policy, execution and data risks, licensing, and third-party copyright information.
+- First-party code is licensed under Apache-2.0, see [LICENSE](LICENSE).
+- Third-party component notices are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md); risk and usage statements are in [NOTICE.md](NOTICE.md).
+- No mutual guarantee is made about feature parity with the official product.

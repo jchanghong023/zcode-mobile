@@ -1,223 +1,119 @@
-# ZCode
-
 <div align="center">
-  <img src="public/logo/icons/1024x1024.png" alt="ZCode" width="128" height="128" />
+  <img src="apps/android/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="ZCode Mobile" width="128" height="128" />
+  <h1>ZCode Mobile</h1>
+  <p><b>ZCode，装进口袋。</b><br/>ZCode AI 编程代理的原生 Android 客户端。</p>
+  <p>
+    <a href="https://www.android.com/"><img src="https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white" alt="Platform: Android" /></a>
+    <a href="https://capacitorjs.com"><img src="https://img.shields.io/badge/Capacitor-8-119EFF?logo=capacitor&logoColor=white" alt="Capacitor 8" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0" /></a>
+    <a href="https://github.com/zai-org/ZCode"><img src="https://img.shields.io/badge/based%20on-ZCode-181717?logo=github" alt="Based on ZCode" /></a>
+  </p>
+  <p>
+    简体中文 | <a href="README.en.md">English</a>
+  </p>
 </div>
+
 <p align="center">
-  <a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=47ag983c-8fcb-4d6d-814b-5395193a712c&amp;qr_code=true">飞书社群</a> ·
-  <a href="https://discord.gg/z9aBcQXZQ3">Discord</a>
+  <img src="docs/screenshots/projects.jpg" width="260" alt="项目页：任务侧栏" />
+  &nbsp;
+  <img src="docs/screenshots/chat.jpg" width="260" alt="聊天页：远程会话" />
+  &nbsp;
+  <img src="docs/screenshots/settings.jpg" width="260" alt="设置页：远程连接" />
 </p>
-<p align="center">
-  简体中文 | <a href="README.en.md">English</a>
-</p>
 
+**ZCode Mobile** 把 [ZCode](https://github.com/zai-org/ZCode) 变成一个真正的 Android App。不用再和浏览器标签页较劲：原生壳 + 完整内置的页面资源，页面从本机资产直接渲染、零网络往返，冷启动瞬间完成，滚动流畅度远超移动端网页。桌面端仍是执行主体——手机随时查看、指挥、接管你的 AI 编程会话。
 
+> **说明**：本项目为社区驱动的非官方客户端，与 Z.ai 及 ZCode 官方无隶属关系。使用需要你自备 ZCode 账号，并已从桌面端完成远程配对。
 
-ZCode 是 AI 编程工作台，提供桌面应用、浏览器界面和终端 Agent。本仓库包含客户端、后端服务、共享 UI，以及 Agent CLI 与运行时源码。
+## ✨ 亮点
 
-## 更新
+- 📦 **零下载 UI** —— 完整 Web UI 编译进 APK：不拉取页面、没有刷新转圈、没有「后台标签页被杀」。
+- ⚡ **为速度调优** —— WebView 异步预热、renderer 预热、官方域名 preconnect/QUIC hint，冷启动与首屏更快；APK 资产已剥离 sourcemap。
+- 🎯 **直连，无中间人** —— API、WebSocket、OAuth 全部直连 `https://zcode.z.ai`；壳层不代理、不改写、不缓存协议。
+- 📱 **原生手感** —— 返回键历史后退、系统 DownloadManager 下载、键盘 insets 封顶屏幕 45%、原生「项目 / 聊天 / 设置」底部导航。
+- 🔗 **深链配对** —— 从桌面端「远程」入口拿 `/remote/v4?...` 链接即直达会话；图标冷启动自动恢复上一次远控链接。
 
-- 2026-9-23：更新至 ZCode v3.14.3 版本。
+## 🧭 工作原理
 
-## 初始化
+```mermaid
+flowchart LR
+    A["📱 ZCode Mobile<br/>原生壳 · UI 内置于 APK"]
+    S["☁️ zcode.z.ai<br/>官方服务"]
+    D["🖥️ 桌面端 ZCode<br/>执行主体"]
 
-准备 Git、Node.js **24.14.0** 和 pnpm **10.33.2**，版本以 [mise.toml](mise.toml) 为准。以下开发和打包命令均在仓库根目录执行。
+    A -- "同源 /api · /ws<br/>直连" --> S
+    A <-- "远控会话中继" --> D
+```
+
+WebView 以官方同源身份（`https://zcode.z.ai`）运行本地打包的 `packages/web` 产物：同源 `/api`、`/ws` 由原生层放行、经 WebView 网络栈直连官方服务，其余路径全部由本地资产响应（含 SPA 回退）。手机上不运行任何东西——没有 ZCode Server、没有 Agent Runtime、没有 Node.js；登录、会话与数据不经过任何第三方服务器。
+
+## 🛠️ 自己动手构建
+
+**环境要求**
+
+- Node.js 24 与 pnpm 10 —— 版本以 [mise.toml](mise.toml) 为准（mise 用户直接 `mise run bootstrap`）
+- JDK 21 与 Android SDK（用 Android Studio 安装最省事）
+
+**构建调试 APK**
 
 ```bash
+git clone https://github.com/jchanghong023/zcode-mobile.git
+cd zcode-mobile
+
+# 安装 workspace 依赖并构建依赖链
 pnpm bootstrap
+
+# web 生产构建 + cap sync + Gradle assembleDebug
+pnpm build:android
 ```
 
-`pnpm bootstrap` 安装 workspace 依赖、准备桌面本地运行资源，再执行 `build:bootstrap`。
+APK 输出在 `apps/android/android/app/build/outputs/apk/debug/app-debug.apk`。安装后经桌面端远控链接完成配对。修改了 React UI？重跑 `pnpm build:android` 即可随包更新。
 
-Agent CLI 与运行时源码位于 [apps/zcode-cli/](apps/zcode-cli/)，作为普通目录随本仓库一起克隆，无需单独拉取或初始化 Git submodule。
+**日常开发命令**（均在仓库根目录执行）
 
-根据需要选择其他初始化或构建入口：
+| 命令                   | 用途                             |
+| ---------------------- | -------------------------------- |
+| `pnpm dev:web`         | 浏览器中开发 Web UI              |
+| `pnpm typecheck`       | 类型检查                         |
+| `pnpm lint`            | Lint（`pnpm lint:fix` 自动修复） |
+| `pnpm fmt:check`       | 格式检查                         |
+| `pnpm build`           | 递归构建所有 workspace 包        |
+| `pnpm build:android`   | 构建调试 APK                     |
+| `pnpm verify:pre-push` | 提交前检查（Lint 与架构检查）    |
 
-| 命令                           | 用途                                                              |
-| ------------------------------ | ----------------------------------------------------------------- |
-| `pnpm install`                 | 安装依赖                                                          |
-| `pnpm prepare:desktop-runtime` | 准备桌面运行资源，默认包含远程资源准备                            |
-| `pnpm prepare:remote-assets`   | 单独准备远程运行资源                                              |
-| `pnpm bootstrap:with-remote`   | 初始化依赖、本地与远程资源，并串行构建相关包；跳过桌面应用 bundle |
-| `pnpm build`                   | 递归执行各 workspace 包的构建脚本，包括包内的资源准备步骤         |
+## 🗂️ 仓库结构
 
-默认 `bootstrap` 跳过远程资源准备，适合本地桌面开发。使用远程工作区或验证远程发行资源时，再运行对应准备命令。
+本仓库是 [zai-org/ZCode](https://github.com/zai-org/ZCode) `v3.14.3` 的精简 Fork，只保留 Android App 所需的 web UI 构建链；桌面端、Server 与 Agent CLI 不在本仓库范围内。
 
-## 开发与运行
+| 目录                                                                                                                        | 职责                                               |
+| --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `apps/android`                                                                                                              | Android 宿主（Capacitor 配置、原生工程、构建脚本） |
+| `packages/web`                                                                                                              | 浏览器/WebView UI 入口（构建产物打进 APK）         |
+| `packages/ui`                                                                                                               | 共享 React 组件、hooks 与 Zustand store            |
+| `packages/client`、`packages/services`、`packages/shared`、`packages/rpc`、`packages/provider`、`packages/model-option-map` | UI 的运行时依赖链                                  |
+| `scripts`、`config`                                                                                                         | 构建维护脚本与内置配置                             |
 
-### 桌面版
+## ❓ 常见问题
 
-```bash
-pnpm dev:desktop
+**AI 是在手机上运行的吗？**
+不是。桌面端始终是执行主体，App 经官方中继连接桌面端，与官方远控页面完全一致。
 
-# 使用测试环境
-pnpm dev:desktop:test
-```
+**页面从哪里加载？**
+从 APK 内置资产加载。只有 `/api`、`/ws` 和 OAuth 走网络，且全部直连官方服务。
 
-`pnpm dev:desktop` 默认等同于 `pnpm dev:desktop:prod`，使用生产服务配置。启动脚本会准备本地运行资源、构建桌面 Agent，再启动 Electron 和源码监听。
+**这是官方产品吗？**
+不是。这是开源社区客户端。「ZCode」名称及相关权利归其权利人所有。
 
-需要独立开发数据目录时，可设置 `ZCODE_DATA_BASE_DIR`。例如在 macOS / Linux 中：
+**使用前需要准备什么？**
+一个可用的 ZCode 账号，以及桌面端「远程」入口生成的配对链接。
 
-```bash
-ZCODE_DATA_BASE_DIR="$HOME/.zcode-dev-home" pnpm dev:desktop:test
-```
+## 🔎 与上游的关系
 
-### 远程功能（SSH/WSL）
+- [FORK.md](FORK.md) 记录上游基线、相对上游的有效差异与同步策略；[apps/android/SPEC.md](apps/android/SPEC.md) 是 Android 壳层行为规格。
+- 上游更新时按需把保留包的改动对照搬运进本仓库，不做整仓覆盖。
 
-先执行 `pnpm bootstrap:with-remote` 准备远程资源（mock-cdn），再 `pnpm dev:desktop`；连接远程项目时资源选择「本地下载后上传」。开发态资源取自本地 `packages/desktop/mock-cdn` 和本地构建产物，经 SFTP 上传到远程，不访问 CDN。
+## 📄 许可与声明
 
-### Web 开发
-
-修改 Web 或后端源码时，使用开发模式：
-
-```bash
-pnpm dev:web
-
-# 指定后端工作区（macOS / Linux）
-ZCODE_SERVER_WORKSPACE=/path/to/project pnpm dev:web
-```
-
-该命令同时启动 Web 开发服务器（默认 `http://localhost:5173`）和后端（默认 `http://localhost:3030`）；浏览器访问前者。`/ws` 和一般 `/api` 请求代理到本地后端，`/api/v1/oauth/token` 单独代理到当前配置的产品服务。
-
-Agent 源码修改后，执行 `pnpm --filter @zcode/cli... build` 并重启服务。需要验证完整发行包时，按下方“ZCode 命令行版”打包章节解压运行。
-
-### ZCode 命令行版
-
-命令行发行包包含 TUI、Web 和 Agent，统一使用 `zcode` 启动：无参数进入 TUI；第一个参数为 `--web` 时启动 Web；其他参数交给现有 Agent CLI 处理。两种模式都在本机运行，无需 Electron。
-
-```bash
-# 默认进入终端交互界面
-zcode
-
-# 启动 Web 界面
-zcode --web
-
-# 指定项目和端口，不自动打开浏览器
-zcode --web --workspace /path/to/project --port 3030 --no-open
-
-# 查看 CLI 或 Web 参数
-zcode --help
-zcode --web --help
-```
-
-Web 模式默认工作目录为当前目录，监听 `127.0.0.1`，默认不启用访问令牌，自动选择空闲端口并打开浏览器。访问终端输出的地址，按 `Ctrl+C` 停止服务。局域网访问可使用 `--host 0.0.0.0`；监听非本机地址时默认生成访问令牌，使用终端输出的带令牌链接。可通过 `--token` 指定令牌或 `--no-token` 关闭令牌认证。
-
-直接启动通用 Web 服务的 HTTP 入口时，通过 `ZCODE_SERVER_AUTH_TOKEN` 配置 API／WebSocket 认证；通过程序接口创建服务时，使用 `authToken` 选项。
-
-构建方式见下方打包章节。`pnpm build:zcode` 只生成发行包，不会替换 `PATH` 中已有的 `zcode`。如果命令仍指向旧安装或其他源码目录，macOS / Linux 可用 `command -v zcode` 检查，Windows 可用 `where.exe zcode` 检查。
-
-### CLI 源码开发
-
-直接开发 TUI 或 Agent 时，运行源码入口：
-
-```bash
-pnpm --filter @zcode/cli dev --help
-pnpm --filter @zcode/cli dev
-
-# 构建 CLI 及其 workspace 依赖
-pnpm --filter @zcode/cli... build
-node apps/zcode-cli/packages/cli/dist/zcode.cjs --help
-```
-
-这个入口直接运行 Agent CLI，不经过发行包的 `--web` 分流。开发 Web 用 `pnpm dev:web`；验证统一的 `zcode` 命令，用下方解压后的 `bin/zcode.mjs`。
-
-## 配置
-
-根目录 [.env.example](.env.example) 提供服务地址与构建配置示例，可按需复制到 `.env`，本地覆盖放入 `.env.local`。Desktop 的开发环境通过 `dev:desktop:test` / `dev:desktop:prod` 选择。
-
-| 配置                                 | 用途                                             |
-| ------------------------------------ | ------------------------------------------------ |
-| `ZCODE_DATA_BASE_DIR`                | 应用数据基目录，数据写入其下的 `.zcode/`         |
-| `ZCODE_SERVER_WORKSPACE`             | Web 后端的工作区路径                             |
-| `ZCODE_BUILTIN_PROVIDER_CONFIG_FILE` | 本地 Provider 配置文件路径；未设置时使用内置配置 |
-| `ZCODE_DIST_BASE_URL`                | 命令行安装脚本使用的下载根地址                   |
-
-运行时变量可在启动命令的环境中显式设置。随客户端发布的默认配置见 [config/README.md](config/README.md)。
-
-## 打包
-
-第三方声明生成、发行校验流程及声明在发行物中的位置见 [third-party/README.md](third-party/README.md)。
-
-### 桌面版
-
-```bash
-pnpm bundle:desktop
-
-# 指定目标平台与 CPU 架构
-pnpm bundle:desktop -- --os win --arch x64
-
-pnpm bundle:desktop -- --help
-```
-
-默认目标为 macOS arm64，默认输出目录为 `packages/desktop/dist/`。`--os` 支持 `mac`、`win`、`linux`，`--arch` 支持 `x64`、`arm64`；实际打包与签名需要目标平台对应的工具和配置。
-
-安装：双击打开产物 DMG，将 ZCode 拖入"应用程序"。本地构建未签名，首次打开若被 macOS 拦截，执行：
-
-```bash
-sudo xattr -rd com.apple.quarantine /Applications/ZCode.app
-```
-
-### ZCode 命令行版
-
-构建入口为 `pnpm build:zcode`。脚本会依次构建 CLI/TUI、后端和 Web，收集 TUI 的原生库、worker 与运行时依赖，再组装发行包；运行发行包仍需要 Node.js，版本以 `mise.toml` 为准。
-
-打包前必须设置下载根地址 `ZCODE_DIST_BASE_URL`（可放在 `.env`、`.env.local` 或环境变量中），也可以通过 `--base-url` 传入。以下地址是占位示例，发布时替换为实际托管地址：
-
-```bash
-pnpm build:zcode --base-url https://downloads.example.com/zcode/
-
-# 已配置 ZCODE_DIST_BASE_URL 时
-pnpm build:zcode
-
-# 仅重新组包，复用已有的 Agent、后端和 Web 构建产物
-pnpm build:zcode --skip-build
-
-# 查看版本、输出目录等可选参数
-pnpm build:zcode --help
-```
-
-默认版本取根目录 `package.json`，输出目录为 `dist/zcode/`：
-
-- `releases/<version>/zcode-<version>.tar.gz`：运行包。
-- `releases/<version>/sha256.txt`：校验摘要。
-- `latest.json`、`install.sh`：版本索引和安装脚本。
-
-完整目录可上传到配置的下载根地址。安装脚本从该地址下载运行包，默认安装到 `~/.zcode/runtime`，并在 `~/.local/bin` 创建 `zcode` 命令。安装目录可通过 `ZCODE_DIST_HOME` 修改，命令目录可通过 `ZCODE_DIST_BIN_DIR` 修改。
-
-旧 Lite 用户需要改用上述构建命令、环境变量和新的安装脚本。新安装不会删除旧 Lite 目录，也不会迁移或删除已有会话数据。
-
-本地调试打包产物时，可直接解压运行，无需上传或安装：
-
-```bash
-zcode_version=$(node -p "require('./dist/zcode/latest.json').version")
-mkdir -p dist/zcode/debug
-tar -xzf "dist/zcode/releases/$zcode_version/zcode-$zcode_version.tar.gz" \
-  -C dist/zcode/debug
-# 默认启动 TUI
-node dist/zcode/debug/zcode/bin/zcode.mjs
-
-# 启动 Web
-node dist/zcode/debug/zcode/bin/zcode.mjs --web \
-  --workspace "$PWD" --port 3030 --no-open
-```
-
-浏览器打开 `http://127.0.0.1:3030`，即可验证同一后端服务托管 Web 页面和 Agent 的完整链路。该端口需要空闲；如正在运行 `pnpm dev:web`，可改用其他 `--port`。
-
-## 仓库结构
-
-| 目录                                                 | 职责                                       |
-| ---------------------------------------------------- | ------------------------------------------ |
-| `packages/desktop`                                   | Electron Main、Host、Renderer 与桌面打包   |
-| `packages/web`                                       | Web 客户端                                 |
-| `packages/server`                                    | HTTP / WebSocket 服务与远程连接            |
-| `packages/zcode-server-cli`                          | 独立 Server 启动与进程管理                 |
-| `packages/ui`                                        | 共享 React 组件、hooks 与 Zustand 状态     |
-| `packages/services`                                  | 业务服务与持久化                           |
-| `packages/shared`、`packages/rpc`、`packages/client` | 共享协议和类型、RPC 框架、Agent 客户端 SDK |
-| `packages/provider`、`packages/provider-node`        | Provider 公共能力与 Node 实现              |
-| `apps/zcode-cli`                                     | Agent CLI、TUI、运行时与工具               |
-| `scripts`、`config`、`third-party`                   | 构建维护脚本、内置配置与第三方声明材料     |
-
-## 项目声明
-
-功能与优惠范围、维护规则、执行与数据风险，以及许可和第三方版权说明，详见 [NOTICE.md](NOTICE.md)。
+- 第一方代码依照 [LICENSE](LICENSE) 采用 Apache-2.0。
+- 第三方组件声明见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)；风险与使用声明见 [NOTICE.md](NOTICE.md)。
+- 与官方产品的功能范围不做互相保证。
