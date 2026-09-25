@@ -7,8 +7,8 @@ android {
         applicationId "dev.jchanghong.zcode"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 31403
+        versionName "3.14.3"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -20,6 +20,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // 复用 debug 签名：与手机上已装的 debug 包同签名，release 可直接覆盖安装，
+            // 个人分发不需要独立的 release keystore。
+            signingConfig signingConfigs.debug
         }
     }
 }

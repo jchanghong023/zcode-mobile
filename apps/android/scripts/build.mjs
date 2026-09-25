@@ -12,6 +12,8 @@ const repoRoot = resolve(here, "..", "..", "..");
 const androidProjectDir = resolve(here, "..", "android");
 const apkArgs = process.argv.includes("--apk");
 const syncOnly = process.argv.includes("--sync-only");
+// --release：assembleRelease 代替 assembleDebug（签名复用 debug keystore，见 app/build.gradle）。
+const releaseArgs = process.argv.includes("--release");
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -92,9 +94,10 @@ if (apkArgs) {
     process.exit(1);
   }
   const gradlew = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
-  run(gradlew, ["assembleDebug"], {
+  run(gradlew, [releaseArgs ? "assembleRelease" : "assembleDebug"], {
     cwd: androidProjectDir,
     env: { ...process.env, JAVA_HOME: javaHome },
   });
-  console.log("[apps/android] APK: android/app/build/outputs/apk/debug/app-debug.apk");
+  const apkVariant = releaseArgs ? "release/app-release.apk" : "debug/app-debug.apk";
+  console.log(`[apps/android] APK: android/app/build/outputs/apk/${apkVariant}`);
 }
