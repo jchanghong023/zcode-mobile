@@ -11,6 +11,7 @@ import { matchesPrimaryShortcut } from "@/lib/keyboardShortcuts.js";
 import { isShortcutRecordingActive } from "@/shortcuts/bindings.js";
 import { isRendererReloadNavigation } from "@/lib/rendererNavigation.js";
 import { useOptionalBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
+import { ensureInitialWorkspaceTabs } from "@/root/initialWorkspaceTabs.js";
 import { shouldPublishCompleteWorkspaceSnapshot } from "@/root/rootPlatformWorkspaceSync.js";
 import {
   createShareImportIntent,
@@ -24,8 +25,10 @@ export function useRootPlatformEffects({
   initialWorkspaceIdentity,
   initialWorkspacePurpose,
   initialTaskId,
+  initialWorkspaceTabs,
   canBootstrapInitialWorkspace = true,
   addTab,
+  ensureWorkspaceTab,
   setIsBootstrappingInitialWorkspace,
   platform,
   activateTabByPath,
@@ -51,6 +54,10 @@ export function useRootPlatformEffects({
   initialWorkspaceIdentity?: string;
   initialWorkspacePurpose?: import("@zcode/shared").WorkspacePurpose;
   initialTaskId?: string;
+  initialWorkspaceTabs?: ReadonlyArray<{
+    workspacePath: string;
+    workspaceIdentity?: string;
+  }>;
   canBootstrapInitialWorkspace?: boolean;
   addTab: (
     workspacePath: string,
@@ -58,6 +65,10 @@ export function useRootPlatformEffects({
       workspaceIdentity?: string;
       workspacePurpose?: import("@zcode/shared").WorkspacePurpose;
     },
+  ) => void;
+  ensureWorkspaceTab: (
+    workspacePath: string,
+    options?: { workspaceIdentity?: string },
   ) => void;
   setIsBootstrappingInitialWorkspace: (value: boolean) => void;
   platform: IPlatformService;
@@ -118,6 +129,8 @@ export function useRootPlatformEffects({
         startDraftInWorkspace(initialWorkspaceAbsPath, initialWorkspaceIdentity);
       }
     }
+    // Android v4 远控：其余桌面端工作区/最近项目只进项目页列表（不抢焦点）。
+    ensureInitialWorkspaceTabs(initialWorkspaceTabs, initialWorkspaceAbsPath, ensureWorkspaceTab);
     // Dock 最近项目会通过 initialWorkspaceAbsPath 直达工作区。
     // 如果这里仍然等首屏先按默认空 tab 渲染一次，窗口会先闪出打开工作区中间页，
     // 再异步补上目标 workspace，视觉上像是“打开错页再跳转”。
@@ -126,10 +139,12 @@ export function useRootPlatformEffects({
   }, [
     addTab,
     canBootstrapInitialWorkspace,
+    ensureWorkspaceTab,
     initialTaskId,
     initialWorkspaceAbsPath,
     initialWorkspaceIdentity,
     initialWorkspacePurpose,
+    initialWorkspaceTabs,
     setIsBootstrappingInitialWorkspace,
     startDraftInWorkspace,
   ]);

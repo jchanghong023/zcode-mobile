@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 仅 debug 构建信任用户安装的 CA（模拟器 E2E 用本地 mock 中继测试 v4 链路）；
+     debug-overrides 只在 android:debuggable=true 时生效，release 构建不受影响。 -->
+<network-security-config>
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+            <certificates src="@raw/zcode_test_ca" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

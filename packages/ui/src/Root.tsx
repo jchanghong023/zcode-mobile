@@ -149,6 +149,7 @@ function RootInner({
   initialWorkspaceIdentity,
   initialWorkspacePurpose,
   initialTaskId,
+  initialWorkspaceTabs,
   isDesktop,
   isMacDesktop,
   isWindowsDesktop,
@@ -383,6 +384,7 @@ function RootInner({
     countAllUnreadTasks(state.workspaces),
   );
   const addTab = useTabStore((state) => state.addTab);
+  const ensureWorkspaceTab = useTabStore((state) => state.ensureWorkspaceTab);
   const activateTabByPath = useTabStore((state) => state.activateTabByPath);
   const tabStoreApi = useTabStoreApi();
   const refreshProviderState = useRootProviderStateRefresh(services);
@@ -647,11 +649,13 @@ function RootInner({
     initialWorkspaceIdentity,
     initialWorkspacePurpose,
     initialTaskId,
+    initialWorkspaceTabs,
     // 系统右键/Service 冷启动传入 initialWorkspacePath 时，必须先恢复历史 tabs，
     // 再把目标 workspace 合并并激活。否则先 addTab 会被 restoreTabs 整体替换掉；
     // 直接禁用 restoreSession 又会让其他 workspace 全部消失。
     canBootstrapInitialWorkspace: canRestoreWorkspaceSession && hasCompletedInitialRestore,
     addTab,
+    ensureWorkspaceTab,
     setIsBootstrappingInitialWorkspace,
     platform,
     activateTabByPath,

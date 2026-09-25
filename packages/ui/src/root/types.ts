@@ -14,6 +14,14 @@ export interface RootProps {
   unavailableWorkspacePath?: string;
   /** 初始 workspace 的身份隔离键，远程工作区需要透传 */
   initialWorkspaceIdentity?: string;
+  /**
+   * 额外注入项目页列表的工作区（Android v4 远控用）：桌面端全部可桥接工作区 + 最近项目。
+   * 只进入任务区数据源、不抢焦点；焦点仍归 initialWorkspaceAbsPath。
+   */
+  initialWorkspaceTabs?: ReadonlyArray<{
+    workspacePath: string;
+    workspaceIdentity?: string;
+  }>;
   /** 初始要打开的 task，从全局 task 列表进入时透传 */
   initialTaskId?: string;
   /** Electron renderer 传 true，用于启用自绘标题栏 */

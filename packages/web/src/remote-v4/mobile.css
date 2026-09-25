@@ -1,0 +1,45 @@
+/* 手机远控在同一棵现有 UI 中切换完整侧栏与聊天，切页不重建连接。 */
+@media (max-width: 639px) {
+  .zcode-v4-mobile [data-mobile-sidebar-backdrop],
+  .zcode-v4-mobile [data-mobile-sidebar-toggle],
+  .zcode-v4-mobile #sidebar + [role="separator"] {
+    display: none !important;
+  }
+
+  .zcode-v4-mobile #sidebar {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100% !important;
+    max-width: none !important;
+    height: 100%;
+    transition: none;
+  }
+
+  .zcode-v4-mobile[data-mobile-tab="projects"] #sidebar {
+    display: block !important;
+    pointer-events: auto;
+    opacity: 1;
+  }
+
+  .zcode-v4-mobile[data-mobile-tab="projects"] #content {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .zcode-v4-mobile[data-mobile-tab="chat"] #sidebar {
+    display: none !important;
+  }
+
+  .zcode-v4-mobile[data-mobile-tab="chat"] #content {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* 桌面端的状态侧面板（Git 工具/进程/计划/后台工作）在手机宽度下挤压会话区，
+     信息密度也不适合竖屏；两个页签下都整块隐藏——面板内部 mini 胶囊带显式
+     visibility:visible，仅靠 #content 的 visibility:hidden 会在「项目」页穿透显示。 */
+  .zcode-v4-mobile [data-testid="chat-summary-panel"] {
+    display: none !important;
+  }
+}

@@ -1,0 +1,27 @@
+# Web UI 的 Android v4 远控入口
+
+`packages/web` 继续提供 APK 内置的 ZCode UI。Android 收到 `/remote/v4` 配对链接后，把其参数交给本地 Web 入口；WebView 不加载官网远控页面。
+
+## 所有权
+
+- `packages/web` 的远控连接适配器唯一持有 relay WebSocket、配对状态、工作区桥接与 RPC 帧序号；React 页面只消费服务代理。
+- Android 只保存最后一次配对链接并将查询参数交给本地入口，不实现业务协议。
+- 桌面 Host 仍是任务、会话和工作区状态的唯一所有者；手机不缓存服务端事实。
+- **目录约定（合并冲突最小化）**：Android/v4 专属新代码只进独立文件——web 侧在 `packages/web/src/remote-v4/`（入口分流收口在 `entry.tsx`，`main.tsx` 仅一行分支）；ui 侧在 `packages/ui/src/v4/mobileRemoteShell.ts`（视口判定/页签导航）与 `MobileSidebarChrome.tsx`（侧栏遮罩/开关）、`packages/ui/src/root/initialWorkspaceTabs.ts`（项目列表注入）。上游桌面组件文件只保留对这些模块的最小引用行。
+
+## 启动顺序
+
+1. 校验配对参数 `sid`、`hash`、`t`，使用官方同源 `/ws` 建立终端连接并完成 challenge 鉴权。
+2. 配对成功后请求窗口 bootstrap，从可桥接工作区中选择当前项；发送带唯一 ID 与代次的 `workspace-bridge-open`。
+3. 桥接就绪后将 relay 的可靠 RPC 帧适配为 `IMessagePassingProtocol`，复用 `@zcode/client` 的服务代理渲染现有 `Root`；同时把该连接以 `v4-<bridgeSessionId>` 注册为绑定 `workspaceIdentity` 的 remote workspace session（`@zcode/ui` 的 workspace services 按 identity 判定远端目标，缺少注册时聊天面板会停留在 `remote-waiting`、`rpcReady=false` 而渲染空白），断开或换代时注销，避免残留 services 指向已关闭连接。项目页完整列表 = bootstrap 全部可桥接工作区 + 桌面端 `recentProjects` 兜底，经 `initialWorkspaceTabs` 注入（只进列表不抢焦点）；会话仍跑在单个被桥接的 workspace 上。
+4. 连接断开、过期或桥接失效时显示明确错误；重连必须重新确认配对与桥接，不把旧代次响应交给当前 UI。
+
+连接链接和鉴权值只留在运行时内存与 Android 私有偏好中，不进日志、构建产物或测试快照。没有远控参数的普通 Web 模式保持原有启动路径。
+
+## 验收
+
+- 真机深链进入本地 `packages/web` 页面，CDP 网络记录中没有 `/remote/v4` HTML、JS、CSS 下载。
+- 手机宽度下「项目」直接呈现现有 `WorkspaceSidebar` 的完整内容与操作，「聊天」呈现现有主工作区；点项目或任务进入聊天。切换这两个页签保留同一棵 `Root` 与同一条 v4 连接，不重新配对。
+- 手机「聊天」隐藏桌面端状态侧面板（`chat-summary-panel`：Git 工具/进程/计划），会话时间线占满整宽；桌面端布局不受影响。
+- 真机完成配对、工作区与任务读取、会话消息往返；后台恢复和冷启动重新连接可用。
+- 比较改动前后页面资源传输量与连接耗时，性能结论只基于真机记录。

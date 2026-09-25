@@ -87,9 +87,9 @@
 ## 项目定位与需求权威（Fork）
 
 - 本仓库已精简为 **ZCode 的 Android 远程 App**：Capacitor 8 壳（`apps/android/`）+ web UI 构建链（`packages/web` 及其依赖 `ui`、`client`、`shared`、`services`、`rpc`、`provider`、`model-option-map`）。仓库不包含桌面端、Server、Agent CLI 与 omp。
-- 所有业务网络由 WebView 直连官方服务（`https://zcode.z.ai`）：同源 `/api`、`/ws`、`/remote/*` 由原生层放行直连，其余路径由本地资产响应（含 SPA 回退）；壳层不实现、不代理、不修改官方协议。
+- 所有业务网络由 WebView 直连官方服务（`https://zcode.z.ai`）：同源 `/api`、`/ws` 由原生层放行直连，其余路径由本地资产响应（含 SPA 回退）。`/remote/v4` 链接由壳层转为本地 UI 的连接配置；v4 协议适配在 `packages/web`，壳层不实现或代理协议。
 - 需求权威文档是根目录 `FORK.md`；壳层行为规格见 `apps/android/SPEC.md`。
-- `packages/` 内保留的 8 个包保持与上游一致的目录组织，便于官方更新时对照搬运；仓库其余目录已按 Android 需求精简，上游新增目录不自动纳入。
+- `packages/` 内保留的 8 个包保持与上游一致的目录组织；`packages/web` 的 v4 入口与 `packages/ui` 的手机视口侧栏行为属于本 Fork，其余保留包源码继续对照上游搬运。仓库其余目录已按 Android 需求精简，上游新增目录不自动纳入。
 
 ## 命令与仓库结构
 

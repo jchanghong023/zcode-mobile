@@ -28,6 +28,7 @@ import type { useSortable } from "@dnd-kit/sortable";
 import { BorderBeam } from "border-beam";
 import { STATUS_DOT } from "@/components/workflow-graph/run-status-presentation.js";
 import { Button, buttonVariants } from "@/components/ui/button.js";
+import { isMobileRemoteV4Page } from "@/v4/mobileRemoteShell.js";
 import {
   Collapsible,
   CollapsibleContent,
@@ -284,6 +285,13 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
 
   const handleWorkspaceOpenChange = useCallback(
     (nextOpen: boolean) => {
+      // Android v4 的项目行负责进入聊天；展开的任务树保留在独立「项目」页中。
+      // 判定须在断连早退之前：v4 workspace 只有 identity 没有 remoteSessionId。
+      if (isMobileRemoteV4Page()) {
+        onStartDraftInWorkspace(tab.workspacePath, tab.workspaceIdentity);
+        return;
+      }
+
       if (isDisconnectedRemoteWorkspace) {
         return;
       }

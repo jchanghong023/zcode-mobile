@@ -26,6 +26,7 @@ public class MainActivity extends BridgeActivity {
     /** 记录最后一次远控链接：桌面图标冷启动时恢复，避免落在本地 SPA 的空壳根路径上。 */
     private static final String SHELL_PREFS = "zcode_shell";
     private static final String KEY_LAST_REMOTE_URL = "lastRemoteUrl";
+    private NativeNavigation nativeNavigation;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -35,7 +36,15 @@ public class MainActivity extends BridgeActivity {
         if (bridge == null) {
             return;
         }
-        bridge.setWebViewClient(new ZCodeWebViewClient(bridge));
+        bridge.setWebViewClient(new ZCodeWebViewClient(bridge, this::onWebRouteChanged));
+        String savedLink = getSharedPreferences(SHELL_PREFS, MODE_PRIVATE)
+            .getString(KEY_LAST_REMOTE_URL, null);
+        nativeNavigation = new NativeNavigation(
+            this,
+            savedLink,
+            this::saveAndConnectRemoteLink,
+            this::navigateToWebTab
+        );
         applyWindowInsets();
         registerBackHandling();
         registerDownloadHandling();
@@ -46,7 +55,13 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        loadDeepLinkIfPresent(intent);
+        // Capacitor 会在 super.onCreate 内部的 load() 里回调 onNewIntent（singleTask 冷启动深链场景），
+        // 此时 nativeNavigation 尚未初始化，直接处理会 NPE 崩溃（实测深链冷启动闪退）。
+        // 冷启动深链统一由 onCreate 末尾的 loadDeepLinkIfPresent(getIntent()) 处理；
+        // 这里仅在导航层就绪后才处理，覆盖应用存活期间的热启动深链。
+        if (nativeNavigation != null) {
+            loadDeepLinkIfPresent(intent);
+        }
     }
 
     /**
@@ -73,7 +88,8 @@ public class MainActivity extends BridgeActivity {
                     WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
                 );
                 Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
-                int bottom = Math.max(bars.bottom, Math.min(ime.bottom, imeHeightCap));
+                nativeNavigation.applyInsets(bars.top, bars.bottom, ime.bottom, imeHeightCap);
+                int bottom = nativeNavigation.contentBottomInset(bars.bottom, ime.bottom, imeHeightCap);
                 v.setPadding(bars.left, bars.top, bars.right, bottom);
                 return WindowInsetsCompat.CONSUMED;
             }
@@ -88,6 +104,10 @@ public class MainActivity extends BridgeActivity {
                 new OnBackPressedCallback(true) {
                     @Override
                     public void handleOnBackPressed() {
+                        if (nativeNavigation.isSettingsVisible()) {
+                            nativeNavigation.showSettings(false);
+                            return;
+                        }
                         WebView webView = bridge.getWebView();
                         if (webView != null && webView.canGoBack()) {
                             webView.goBack();
@@ -130,9 +150,8 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
-     * https://zcode.z.ai 深链（分享页、?remote= 远控链接）：singleTask 下冷启动走
-     * onCreate、热启动走 onNewIntent；同源 URL 交给 WebView 加载即可命中本地资产
-     * 与 SPA 回退，与浏览器打开同一链接行为一致。
+     * https://zcode.z.ai 深链：singleTask 下冷启动走 onCreate、热启动走 onNewIntent。
+     * v4 链接先转为本地 UI 的连接配置；分享等其他同源路由仍由本地资产处理。
      */
     private void loadDeepLinkIfPresent(Intent intent) {
         if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction())) {
@@ -149,14 +168,60 @@ public class MainActivity extends BridgeActivity {
         WebView webView = bridge.getWebView();
         if (webView != null) {
             rememberLastRemoteUrl(data);
-            webView.loadUrl(data.toString());
+            if ("/remote/v4".equals(data.getPath())) {
+                nativeNavigation.setLink(data.toString());
+                nativeNavigation.selectWebTab("projects");
+            }
+            webView.loadUrl(toLocalEntryUrl(data));
+            nativeNavigation.showSettings(false);
+        }
+    }
+
+    /** 设置页只接受本站的完整 v4 配对链接，避免把任意网页当作应用入口载入。 */
+    private void saveAndConnectRemoteLink(String raw) {
+        Uri link;
+        try {
+            link = Uri.parse(raw);
+            String timestamp = link.getQueryParameter("t");
+            if (
+                !"https".equalsIgnoreCase(link.getScheme()) ||
+                !bridge.getHost().equalsIgnoreCase(link.getHost()) ||
+                !"/remote/v4".equals(link.getPath()) ||
+                link.getQueryParameter("sid") == null ||
+                link.getQueryParameter("hash") == null ||
+                timestamp == null ||
+                Long.parseLong(timestamp) <= 0
+            ) {
+                throw new IllegalArgumentException("Invalid remote link");
+            }
+        } catch (RuntimeException error) {
+            Toast.makeText(this, "请输入完整的 ZCode v4 远控链接", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        rememberLastRemoteUrl(link);
+        nativeNavigation.setLink(link.toString());
+        bridge.getWebView().loadUrl(toLocalEntryUrl(link));
+        nativeNavigation.selectWebTab("projects");
+        nativeNavigation.showSettings(false);
+    }
+
+    /** 原生底栏只改变本地 Web UI 的页签，不重新加载页面或断开远程会话。 */
+    private void navigateToWebTab(String tab) {
+        String fragment = "chat".equals(tab) ? "chat" : "projects";
+        bridge.getWebView().evaluateJavascript("window.location.hash = '#" + fragment + "'", null);
+    }
+
+    private void onWebRouteChanged(String url) {
+        if (nativeNavigation == null) return;
+        String fragment = Uri.parse(url).getFragment();
+        if ("chat".equals(fragment) || "projects".equals(fragment)) {
+            nativeNavigation.selectWebTab(fragment);
         }
     }
 
     /**
-     * 桌面图标冷启动（非深链）时恢复最后一次远控链接：本地 SPA 根路径连接官方 /ws
-     * 后只会永久空等（官方不为未配对客户端提供独立会话），表现为一片黑屏"打不开"。
-     * 恢复的链接若已过期，官方客户端会展示自己的"回到桌面端重新连接"提示页，不再黑屏。
+     * 桌面图标冷启动时恢复最后一次 v4 连接配置，进入 APK 内置 UI。
+     * 失效的配对由 Web 入口显示错误和重试操作，避免空白页。
      */
     private void restoreLastRemoteUrlIfLauncherColdStart() {
         Intent intent = getIntent();
@@ -167,18 +232,41 @@ public class MainActivity extends BridgeActivity {
         String last = getSharedPreferences(SHELL_PREFS, MODE_PRIVATE).getString(KEY_LAST_REMOTE_URL, null);
         WebView webView = bridge.getWebView();
         if (last != null && webView != null) {
-            webView.loadUrl(last);
+            webView.loadUrl(toLocalEntryUrl(Uri.parse(last)));
         }
     }
 
-    /** 仅记住远控入口（/remote/*）：本地 SPA 的 / 与分享页不作为图标启动的恢复目标。 */
+    /** 仅记住 v4 配对链接；本地 SPA 的 / 与分享页不作为图标启动的恢复目标。 */
     private void rememberLastRemoteUrl(Uri url) {
         String path = url.getPath();
-        if (path != null && path.startsWith("/remote/")) {
+        if ("/remote/v4".equals(path)) {
             getSharedPreferences(SHELL_PREFS, MODE_PRIVATE)
                 .edit()
                 .putString(KEY_LAST_REMOTE_URL, url.toString())
                 .apply();
         }
+    }
+
+    /**
+     * 修复旧入口直接加载官网 /remote/v4 页面的问题：远控链接只提供配对参数，
+     * 实际页面始终走 APK 内置的 packages/web 首页。
+     */
+    private String toLocalEntryUrl(Uri link) {
+        if (!"/remote/v4".equals(link.getPath())) {
+            return link.toString();
+        }
+        Uri.Builder local = new Uri.Builder()
+            .scheme("https")
+            .authority(bridge.getHost())
+            .path("/")
+            .appendQueryParameter("zcode-remote-v4", "1")
+            .fragment("projects");
+        for (String key : new String[] { "sid", "hash", "t", "mid", "name", "app_version" }) {
+            String value = link.getQueryParameter(key);
+            if (value != null) {
+                local.appendQueryParameter(key, value);
+            }
+        }
+        return local.build().toString();
     }
 }

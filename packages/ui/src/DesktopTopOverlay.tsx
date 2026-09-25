@@ -8,6 +8,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { MobileSidebarToggle } from "@/v4/MobileSidebarChrome.js";
 import { UpdateStatusButton } from "@/UpdateStatusButton.js";
 import { DesktopTopOverlayActionButton } from "@/DesktopTopOverlayActionButton.js";
 import {
@@ -158,6 +159,15 @@ export function DesktopTopOverlay({
             >
               <SidebarToggleIcon className="size-4" />
             </DesktopTopOverlayActionButton>
+          )}
+
+          {!isDesktop && (
+            <MobileSidebarToggle
+              isSidebarVisible={isSidebarVisible}
+              title={toggleSidebarTitle}
+              shortcut={toggleSidebarShortcutLabel}
+              onToggle={onToggleSidebar}
+            />
           )}
 
           {/* 远程控制移动端左上角空间有限，任务前进/后退在这里会与主操作拥挤重叠。*/}

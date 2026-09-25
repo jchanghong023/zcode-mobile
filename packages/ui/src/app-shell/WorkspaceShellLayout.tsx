@@ -11,6 +11,8 @@ import { TID_APP_HEADER } from "@zcode/shared";
 // 保活：workspace tab 真正关闭时，按 workspaceKey 回收 side pane terminal 的常驻 PTY/xterm。
 // 对称下侧 Terminal.tsx 的 openWorkspaceKeys 回收。
 import { sidePaneTerminalSessionRegistry } from "@/terminal/sidePaneTerminalSessionRegistry.js";
+import { MobileSidebarBackdrop } from "@/v4/MobileSidebarChrome.js";
+import { isMobileRemoteV4Page, navigateToMobileChatTab } from "@/v4/mobileRemoteShell.js";
 import { V4ChatPane } from "@/v4/V4ChatPane.js";
 import { V4WorkspaceChatArea } from "@/v4/V4WorkspaceChatArea.js";
 import {
@@ -402,7 +404,9 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
       (entry) => Boolean(entry.workspaceKey) && !retained.has(entry.workspaceKey),
     );
   }, [openWorkspaceKeys]);
-  const isSidebarPanelVisible = isSidebarVisible;
+  // Android v4 的「项目」页直接复用完整侧栏；窄屏自动收起仅适用于并排布局。
+  const isMobileRemoteV4 = isMobileRemoteV4Page();
+  const isSidebarPanelVisible = isSidebarVisible || isMobileRemoteV4;
   const {
     panelRef: terminalPanelRef,
     panelElementRef: terminalPanelElementRef,
@@ -445,6 +449,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
   }, [handleToggleSidebar, handleToggleSidePane, isSidebarVisible, isSidePaneOpen, workspaceKey]);
 
   useEffect(() => {
+    if (isMobileRemoteV4) return;
     if (workspaceMainView !== "chat") {
       return;
     }
@@ -468,7 +473,10 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
         workspaceKey: latestWorkspaceKey,
       } = conversationAutoCollapseStateRef.current;
 
-      if (latestIsSidebarVisible && widthPx < CONVERSATION_AUTO_COLLAPSE_SIDEBAR_WIDTH_PX) {
+      if (
+        latestIsSidebarVisible &&
+        (window.innerWidth < 640 || widthPx < CONVERSATION_AUTO_COLLAPSE_SIDEBAR_WIDTH_PX)
+      ) {
         logger.info("[WorkspaceShellLayout] conversation 过窄，自动收起左侧栏", {
           widthPx: Math.round(widthPx),
           thresholdPx: CONVERSATION_AUTO_COLLAPSE_SIDEBAR_WIDTH_PX,
@@ -523,6 +531,12 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
 
     window.addEventListener("resize", handleWindowResize);
 
+    // 手机首屏不会触发窗口 resize；初始会把固定宽侧栏和会话并排挤出视口。
+    // 首次布局完成后沿用已有收起策略，后续由用户自行控制侧栏。
+    if (window.innerWidth < 640) {
+      window.requestAnimationFrame(runAutoCollapseForWindowResize);
+    }
+
     return () => {
       if (conversationAutoCollapseResizeTimerRef.current !== null) {
         window.clearTimeout(conversationAutoCollapseResizeTimerRef.current);
@@ -530,7 +544,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
       }
       window.removeEventListener("resize", handleWindowResize);
     };
-  }, [workspaceMainView]);
+  }, [isMobileRemoteV4, workspaceMainView]);
 
   useEffect(() => {
     workspaceSidebarPanelWidthPxRef.current = workspaceSidebarPanelWidthPx;
@@ -834,8 +848,9 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
       }
       showChatMainView();
       onCreateTask(request);
+      if (isMobileRemoteV4) navigateToMobileChatTab();
     },
-    [onCreateTask, showChatMainView, workspaceReadOnlyReason],
+    [isMobileRemoteV4, onCreateTask, showChatMainView, workspaceReadOnlyReason],
   );
   const shellWorkbenchBinding = useMemo<WorkbenchSessionBinding | null>(
     () =>
@@ -921,8 +936,17 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
       } else {
         handleSelectTask(targetWorkspacePath, taskId, targetWorkspaceIdentity);
       }
+      if (isMobileRemoteV4) navigateToMobileChatTab();
     },
-    [handleSelectTask, intl, shellWorkbenchBinding, showChatMainView, tabStoreApi, workspaceTabs],
+    [
+      handleSelectTask,
+      intl,
+      isMobileRemoteV4,
+      shellWorkbenchBinding,
+      showChatMainView,
+      tabStoreApi,
+      workspaceTabs,
+    ],
   );
   // 中枢直接启动 accepted 后切到新会话（run 卡已在顶部）：复用运行历史那条导航，
   // target 恒带工作流所属项目坐标（不变式 7），remoteSessionId 决定连接 endpoint。
@@ -1102,9 +1126,11 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
     [handleStartDraftInWorkspace, showChatMainView],
   );
   const handleCreateProjectDraft = useCallback(
-    (path: string, identity?: string) =>
-      handleStartDraftInWorkspaceInChat(path, identity, undefined, "project"),
-    [handleStartDraftInWorkspaceInChat],
+    (path: string, identity?: string) => {
+      handleStartDraftInWorkspaceInChat(path, identity, undefined, "project");
+      if (isMobileRemoteV4) navigateToMobileChatTab();
+    },
+    [handleStartDraftInWorkspaceInChat, isMobileRemoteV4],
   );
   const activeWorkspacePurpose =
     workspaceTabs.find(
@@ -1527,13 +1553,14 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
           // CSS 变量驱动的专用 split，普通窗口 resize 只走浏览器布局，不触发 React 状态。
         )}
       >
+        {isSidebarPanelVisible ? <MobileSidebarBackdrop onToggle={handleToggleSidebar} /> : null}
         <div
           ref={workspaceSidebarPanelElementRef}
           data-panel=""
           data-workspace-sidebar-panel="true"
           id="sidebar"
           className={cn(
-            "w-[var(--workspace-sidebar-panel-width)] max-w-[50%] flex-none overflow-hidden duration-200 ease-out transition-[width,opacity] data-[workspace-sidebar-resizing=true]:transition-opacity",
+            "w-[var(--workspace-sidebar-panel-width)] max-w-[50%] flex-none overflow-hidden duration-200 ease-out transition-[width,opacity] data-[workspace-sidebar-resizing=true]:transition-opacity max-sm:absolute max-sm:inset-y-0 max-sm:left-0 max-sm:z-30 max-sm:max-w-[85%] max-sm:bg-sidebar",
             // 拖动侧栏宽度时如果继续过渡 width，会让指针移动和实际宽度之间产生滞后。
             // 拖拽 active 通过 DOM 标记切 transition，避免 pointerdown/up 为了切 class 重渲染整棵 workspace。
             isSidebarPanelVisible ? "opacity-100" : "pointer-events-none opacity-0",
@@ -1586,7 +1613,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
                     isDesktop={isDesktop}
                     isMacDesktop={isMacDesktop}
                     isWindowsDesktop={isWindowsDesktop}
-                    isSidebarVisible={isSidebarVisible}
+                    isSidebarVisible={isSidebarPanelVisible}
                     onToggleSidebar={handleToggleSidebar}
                     toggleSidebarShortcutLabel={toggleSidebarShortcutLabel}
                     canGoBack={canPrimaryNavigationBack}
@@ -1636,7 +1663,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
           data-panel=""
           id="content"
           className={cn(
-            "flex min-w-[320px] flex-1 flex-col",
+            "flex min-w-0 flex-1 flex-col sm:min-w-[320px]",
             hasDesktopPanelInset ? "p-1 pl-0 pt-0" : "p-0",
           )}
         >
