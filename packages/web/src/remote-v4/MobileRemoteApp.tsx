@@ -41,6 +41,7 @@ export function MobileRemoteApp({ params, platform }: Props) {
 
   const connect = useCallback(async () => {
     setError(null);
+    setRecentProjects([]);
     let next: V4Connection;
     try {
       next = await connectV4Remote(params, (reason) => {
@@ -77,7 +78,12 @@ export function MobileRemoteApp({ params, platform }: Props) {
     // 桌面端最近项目是项目页列表的兜底数据源；读取失败不阻塞主连接。
     try {
       const settings = await next.services.settingService.get();
-      if (mounted.current && Array.isArray(settings?.recentProjects)) {
+      // 旧连接的设置请求可能晚于新桥接返回，不能把旧项目列表写进新连接。
+      if (
+        mounted.current &&
+        activeConnection.current === next &&
+        Array.isArray(settings?.recentProjects)
+      ) {
         setRecentProjects(settings.recentProjects);
       }
     } catch {

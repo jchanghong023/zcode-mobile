@@ -5,12 +5,25 @@
 export function ensureInitialWorkspaceTabs(
   tabs: ReadonlyArray<{ workspacePath: string; workspaceIdentity?: string }> | undefined,
   initialWorkspaceAbsPath: string | undefined,
+  initialWorkspaceIdentity: string | undefined,
   ensureWorkspaceTab: (path: string, options?: { workspaceIdentity?: string }) => void,
+  injectedWorkspaceKeys: Set<string>,
 ): void {
   for (const tab of tabs ?? []) {
-    if (!tab.workspacePath || tab.workspacePath === initialWorkspaceAbsPath) {
+    if (
+      !tab.workspacePath ||
+      (tab.workspacePath === initialWorkspaceAbsPath &&
+        tab.workspaceIdentity === initialWorkspaceIdentity)
+    ) {
       continue;
     }
+    // recentProjects 异步到达会重新传入完整列表；只补新增项，避免每次更新
+    // 都让 ensureWorkspaceTab 重写已有 tab 并打断用户在侧栏中的操作。
+    const key = `${tab.workspaceIdentity ?? ""}\0${tab.workspacePath}`;
+    if (injectedWorkspaceKeys.has(key)) {
+      continue;
+    }
+    injectedWorkspaceKeys.add(key);
     ensureWorkspaceTab(
       tab.workspacePath,
       tab.workspaceIdentity ? { workspaceIdentity: tab.workspaceIdentity } : undefined,

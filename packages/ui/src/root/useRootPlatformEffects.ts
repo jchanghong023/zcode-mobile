@@ -66,10 +66,7 @@ export function useRootPlatformEffects({
       workspacePurpose?: import("@zcode/shared").WorkspacePurpose;
     },
   ) => void;
-  ensureWorkspaceTab: (
-    workspacePath: string,
-    options?: { workspaceIdentity?: string },
-  ) => void;
+  ensureWorkspaceTab: (workspacePath: string, options?: { workspaceIdentity?: string }) => void;
   setIsBootstrappingInitialWorkspace: (value: boolean) => void;
   platform: IPlatformService;
   activateTabByPath: (workspacePath: string, options?: { workspaceIdentity?: string }) => boolean;
@@ -92,6 +89,7 @@ export function useRootPlatformEffects({
   isRestoringOAuthSession: boolean;
 }) {
   const didBootstrapInitialWorkspaceRef = useRef(false);
+  const injectedInitialWorkspaceKeysRef = useRef(new Set<string>());
   const baseServices = useOptionalBaseWorkspaceServices();
   const pendingShareImportRef = useRef<ShareImportIntent | null>(null);
   const [shareImportRevision, setShareImportRevision] = useState(0);
@@ -129,8 +127,6 @@ export function useRootPlatformEffects({
         startDraftInWorkspace(initialWorkspaceAbsPath, initialWorkspaceIdentity);
       }
     }
-    // Android v4 远控：其余桌面端工作区/最近项目只进项目页列表（不抢焦点）。
-    ensureInitialWorkspaceTabs(initialWorkspaceTabs, initialWorkspaceAbsPath, ensureWorkspaceTab);
     // Dock 最近项目会通过 initialWorkspaceAbsPath 直达工作区。
     // 如果这里仍然等首屏先按默认空 tab 渲染一次，窗口会先闪出打开工作区中间页，
     // 再异步补上目标 workspace，视觉上像是“打开错页再跳转”。
@@ -139,14 +135,33 @@ export function useRootPlatformEffects({
   }, [
     addTab,
     canBootstrapInitialWorkspace,
-    ensureWorkspaceTab,
     initialTaskId,
     initialWorkspaceAbsPath,
     initialWorkspaceIdentity,
     initialWorkspacePurpose,
-    initialWorkspaceTabs,
     setIsBootstrappingInitialWorkspace,
     startDraftInWorkspace,
+  ]);
+
+  useEffect(() => {
+    if (!canBootstrapInitialWorkspace || !didBootstrapInitialWorkspaceRef.current) {
+      return;
+    }
+    // bootstrap 列表先到、recentProjects 后到；两者都注入侧栏，但只有首次
+    // 启动流程决定焦点。旧的单次启动 effect 会漏掉异步补充的项目。
+    ensureInitialWorkspaceTabs(
+      initialWorkspaceTabs,
+      initialWorkspaceAbsPath,
+      initialWorkspaceIdentity,
+      ensureWorkspaceTab,
+      injectedInitialWorkspaceKeysRef.current,
+    );
+  }, [
+    canBootstrapInitialWorkspace,
+    ensureWorkspaceTab,
+    initialWorkspaceAbsPath,
+    initialWorkspaceIdentity,
+    initialWorkspaceTabs,
   ]);
 
   useEffect(() => {
