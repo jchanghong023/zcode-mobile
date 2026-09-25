@@ -1,5 +1,6 @@
 import { connectViaProtocol } from "@zcode/client";
 import { V4RpcBridge, encodeBase64, type Bridge } from "./frame.js";
+import { RemoteConnectionError } from "./connectionRecovery.js";
 
 interface Pairing {
   sid: string;
@@ -24,6 +25,7 @@ export interface V4Connection {
     workspacePath: string;
     workspaceIdentity?: string;
   }>;
+  isOpen: () => boolean;
   dispose: () => void;
 }
 
@@ -73,9 +75,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export async function connectV4Remote(
   params: URLSearchParams,
   onDisconnect: (error: Error) => void,
+  signal?: AbortSignal,
 ): Promise<V4Connection> {
   const pairing = parseV4Pairing(params);
   if (!pairing) throw new Error("Invalid v4 remote link");
+  if (signal?.aborted) {
+    const error = new Error("Remote connection canceled");
+    error.name = "AbortError";
+    throw error;
+  }
   const url = new URL(`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`);
   if (pairing.mid) url.searchParams.set("mid", pairing.mid);
   const socket = new WebSocket(url);
@@ -86,10 +94,15 @@ export async function connectV4Remote(
   let pendingRequestId: string | undefined;
   let expectedBridgeSessionId: string | undefined;
   let lastBootstrapWorkspaces: Array<{ workspacePath: string; workspaceIdentity?: string }> = [];
-  const timeout = window.setTimeout(() => fail(new Error("Remote pairing timed out")), 30_000);
+  const timeout = window.setTimeout(
+    () => fail(new RemoteConnectionError("Remote pairing timed out", true)),
+    30_000,
+  );
 
   const send = (value: object) => {
-    if (socket.readyState !== WebSocket.OPEN) throw new Error("Remote socket is closed");
+    if (socket.readyState !== WebSocket.OPEN) {
+      throw new RemoteConnectionError("Remote socket is closed", true);
+    }
     socket.send(JSON.stringify(value));
   };
   const sendPayload = (payload: object) => {
@@ -103,9 +116,25 @@ export async function connectV4Remote(
     rejectConnection = reject;
   });
 
+  const onAbort = () => {
+    if (disposed) return;
+    disposed = true;
+    window.clearTimeout(timeout);
+    rpc?.dispose();
+    socket.close();
+    if (!settled) {
+      settled = true;
+      const error = new Error("Remote connection canceled");
+      error.name = "AbortError";
+      rejectConnection(error);
+    }
+  };
+  signal?.addEventListener("abort", onAbort, { once: true });
+
   function fail(error: Error) {
     if (disposed) return;
     disposed = true;
+    signal?.removeEventListener("abort", onAbort);
     window.clearTimeout(timeout);
     rpc?.dispose();
     socket.close();
@@ -216,21 +245,27 @@ export async function connectV4Remote(
         }
         rpc = new V4RpcBridge(bridge, sendPayload);
         settled = true;
+        signal?.removeEventListener("abort", onAbort);
         window.clearTimeout(timeout);
         resolveConnection({
           services: connectViaProtocol(rpc.protocol),
           bridge,
           // bootstrap 全量列表 + 桥接项置顶；顺序供项目页展示与去重使用。
           availableWorkspaces: [
-            { workspacePath: bridge.workspacePath, ...(bridge.workspaceIdentity ? { workspaceIdentity: bridge.workspaceIdentity } : {}) },
+            {
+              workspacePath: bridge.workspacePath,
+              ...(bridge.workspaceIdentity ? { workspaceIdentity: bridge.workspaceIdentity } : {}),
+            },
             ...lastBootstrapWorkspaces.filter(
               (item) =>
                 item.workspacePath !== bridge.workspacePath ||
                 (item.workspaceIdentity ?? undefined) !== (bridge.workspaceIdentity ?? undefined),
             ),
           ],
+          isOpen: () => socket.readyState === WebSocket.OPEN,
           dispose: () => {
             disposed = true;
+            signal?.removeEventListener("abort", onAbort);
             rpc?.dispose();
             socket.close();
           },
@@ -241,7 +276,11 @@ export async function connectV4Remote(
     });
   });
 
-  socket.addEventListener("error", () => fail(new Error("Remote WebSocket failed")));
-  socket.addEventListener("close", () => fail(new Error("Remote WebSocket closed")));
+  socket.addEventListener("error", () =>
+    fail(new RemoteConnectionError("Remote WebSocket failed", true)),
+  );
+  socket.addEventListener("close", () =>
+    fail(new RemoteConnectionError("Remote WebSocket closed", true)),
+  );
   return connection;
 }

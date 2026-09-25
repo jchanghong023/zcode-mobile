@@ -9,6 +9,13 @@ import {
 } from "@zcode/ui";
 import type { IPlatformService } from "@zcode/shared";
 import { connectV4Remote, type V4Connection } from "./connection.js";
+import {
+  isRetryableRemoteError,
+  RemoteConnectionError,
+  RESUME_PROBE_AFTER_MS,
+  RESUME_PROBE_TIMEOUT_MS,
+  retryDelayMs,
+} from "./connectionRecovery.js";
 import "./mobile.css";
 
 interface Props {
@@ -37,30 +44,85 @@ export function MobileRemoteApp({ params, platform }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [recentProjects, setRecentProjects] = useState<ReadonlyArray<string>>([]);
   const activeConnection = useRef<V4Connection | null>(null);
+  const pendingConnect = useRef<AbortController | null>(null);
+  const retryTimer = useRef<number | null>(null);
+  const failedAttempts = useRef(0);
+  const automaticRetry = useRef(true);
+  const hiddenAt = useRef<number | null>(null);
+  const probingConnection = useRef<V4Connection | null>(null);
+  const connectRef = useRef<() => void>(() => {});
   const mounted = useRef(true);
 
+  const clearRetry = useCallback(() => {
+    if (retryTimer.current !== null) {
+      window.clearTimeout(retryTimer.current);
+      retryTimer.current = null;
+    }
+  }, []);
+
+  const handleFailure = useCallback(
+    (reason: Error) => {
+      if (!mounted.current) return;
+      setError(reason.message);
+      automaticRetry.current = isRetryableRemoteError(reason);
+      if (!automaticRetry.current) return;
+      const delay = retryDelayMs(++failedAttempts.current);
+      // 后台计时器会被 WebView 节流；回来时直接重试，避免恢复后继续等待旧倒计时。
+      if (document.hidden) return;
+      clearRetry();
+      retryTimer.current = window.setTimeout(() => {
+        retryTimer.current = null;
+        connectRef.current();
+      }, delay);
+    },
+    [clearRetry],
+  );
+
   const connect = useCallback(async () => {
+    if (!mounted.current || pendingConnect.current || activeConnection.current) return;
+    clearRetry();
     setError(null);
     setRecentProjects([]);
+    const abort = new AbortController();
+    pendingConnect.current = abort;
     let next: V4Connection;
     try {
-      next = await connectV4Remote(params, (reason) => {
-        if (activeConnection.current !== next || !mounted.current) return;
-        activeConnection.current = null;
-        teardownConnection(next);
-        setConnection(null);
-        setError(reason.message);
-      });
+      next = await connectV4Remote(
+        params,
+        (reason) => {
+          if (activeConnection.current !== next || !mounted.current) return;
+          activeConnection.current = null;
+          teardownConnection(next);
+          setConnection(null);
+          handleFailure(reason);
+        },
+        abort.signal,
+      );
     } catch (reason) {
-      if (mounted.current) setError(reason instanceof Error ? reason.message : String(reason));
+      if (pendingConnect.current === abort) pendingConnect.current = null;
+      if (!mounted.current) return;
+      if (reason instanceof Error && reason.name === "AbortError") {
+        if (!document.hidden && automaticRetry.current) connectRef.current();
+        return;
+      }
+      handleFailure(reason instanceof Error ? reason : new Error(String(reason)));
       return;
     }
-    if (!mounted.current) {
+    if (pendingConnect.current === abort) pendingConnect.current = null;
+    if (!mounted.current || abort.signal.aborted) {
       teardownConnection(next);
+      return;
+    }
+    if (!next.isOpen()) {
+      // 握手刚成功时的关闭事件可能早于 await 恢复；此时尚无 activeConnection 接收断线回调。
+      teardownConnection(next);
+      handleFailure(new RemoteConnectionError("Remote WebSocket closed", true));
       return;
     }
     teardownConnection(activeConnection.current);
     activeConnection.current = next;
+    failedAttempts.current = 0;
+    automaticRetry.current = true;
     // v4 工作区带 identity，会被 workspace services 判定为 remote 目标；
     // 必须把这条连接注册为 identity 绑定的 remote session，聊天面板的
     // V4ConversationProvider 才能拿到 rpcReady=true，否则一直渲染 null。
@@ -89,20 +151,99 @@ export function MobileRemoteApp({ params, platform }: Props) {
     } catch {
       /* 项目页仍有 bootstrap 工作区列表可用 */
     }
-  }, [params]);
+  }, [clearRetry, handleFailure, params]);
+  connectRef.current = () => void connect();
+
+  const replaceStaleConnection = useCallback((stale: V4Connection) => {
+    if (!mounted.current || activeConnection.current !== stale) return;
+    // 返回前台时 WebSocket 可能仍报 OPEN，但 RPC 已无法往返；重新配对并
+    // 建立新桥接，旧代服务先注销，避免迟到响应污染恢复后的会话。
+    activeConnection.current = null;
+    teardownConnection(stale);
+    setConnection(null);
+    failedAttempts.current = 0;
+    automaticRetry.current = true;
+    connectRef.current();
+  }, []);
+
+  const probeConnection = useCallback(
+    (current: V4Connection) => {
+      if (probingConnection.current === current) return;
+      probingConnection.current = current;
+      let timeoutId: number | null = null;
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutId = window.setTimeout(
+          () => reject(new Error("Remote connection probe timed out")),
+          RESUME_PROBE_TIMEOUT_MS,
+        );
+      });
+      void Promise.race([
+        Promise.resolve().then(() => current.services.settingService.get()),
+        timeout,
+      ])
+        .catch(() => replaceStaleConnection(current))
+        .finally(() => {
+          if (timeoutId !== null) window.clearTimeout(timeoutId);
+          if (probingConnection.current === current) probingConnection.current = null;
+        });
+    },
+    [replaceStaleConnection],
+  );
 
   useEffect(() => {
     mounted.current = true;
     const updateTab = () => setTab(currentTab());
+    const resumeConnection = (forceProbe: boolean) => {
+      if (document.hidden) return;
+      const current = activeConnection.current;
+      if (!current) {
+        if (automaticRetry.current) {
+          clearRetry();
+          connectRef.current();
+        }
+        return;
+      }
+      if (!current.isOpen()) {
+        replaceStaleConnection(current);
+        return;
+      }
+      if (forceProbe) probeConnection(current);
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        hiddenAt.current = Date.now();
+        clearRetry();
+        pendingConnect.current?.abort();
+        return;
+      }
+      const backgroundDuration = hiddenAt.current === null ? 0 : Date.now() - hiddenAt.current;
+      hiddenAt.current = null;
+      resumeConnection(backgroundDuration >= RESUME_PROBE_AFTER_MS);
+    };
+    const onOnline = () => {
+      // 网络恢复后旧握手可能仍在等待超时；取消后由 AbortError 路径立即发起新连接。
+      if (pendingConnect.current) {
+        pendingConnect.current.abort();
+        return;
+      }
+      resumeConnection(true);
+    };
     window.addEventListener("hashchange", updateTab);
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     void connect();
     return () => {
       mounted.current = false;
+      clearRetry();
+      pendingConnect.current?.abort();
+      pendingConnect.current = null;
       teardownConnection(activeConnection.current);
       activeConnection.current = null;
       window.removeEventListener("hashchange", updateTab);
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [connect]);
+  }, [clearRetry, connect, probeConnection, replaceStaleConnection]);
 
   // 项目页完整列表 = 桥接/可桥接工作区（带 identity）+ 桌面端最近项目（path 兜底），按路径去重。
   const initialWorkspaceTabs = useMemo(() => {
@@ -150,7 +291,11 @@ export function MobileRemoteApp({ params, platform }: Props) {
           {error ? (
             <button
               type="button"
-              onClick={() => void connect()}
+              onClick={() => {
+                automaticRetry.current = true;
+                failedAttempts.current = 0;
+                void connect();
+              }}
               className="rounded-lg border border-border px-4 py-2"
             >
               重试
