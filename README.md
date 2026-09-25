@@ -85,15 +85,15 @@ APK 输出在 `apps/android/android/app/build/outputs/apk/debug/app-debug.apk`�
 
 ## 🗂️ 仓库结构
 
-本仓库是 [zai-org/ZCode](https://github.com/zai-org/ZCode) `v3.14.3` 的精简 Fork，只保留 Android App 所需的 web UI 构建链；桌面端、Server 与 Agent CLI 不在本仓库范围内。
+本仓库是基于 [zai-org/ZCode](https://github.com/zai-org/ZCode) `v3.14.3` 的独立项目，只保留 Android App 所需的 web UI 构建链；桌面端、Server 与 Agent CLI 不在本仓库范围内。
 
-| 目录                                                                                                                        | 职责                                               |
-| --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `apps/android`                                                                                                              | Android 宿主（Capacitor 配置、原生工程、构建脚本） |
-| `packages/web`                                                                                                              | 浏览器/WebView UI 入口（构建产物打进 APK）         |
-| `packages/ui`                                                                                                               | 共享 React 组件、hooks 与 Zustand store            |
-| `packages/client`、`packages/services`、`packages/shared`、`packages/rpc`、`packages/provider`、`packages/model-option-map` | UI 的运行时依赖链                                  |
-| `scripts`、`config`                                                                                                         | 构建维护脚本与内置配置                             |
+| 目录                                                                                                                                                                        | 职责                                               |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `apps/android`                                                                                                                                                              | Android 宿主（Capacitor 配置、原生工程、构建脚本） |
+| `packages/web`                                                                                                                                                              | 浏览器/WebView UI 入口（构建产物打进 APK）         |
+| `packages/ui`                                                                                                                                                               | 共享 React 组件、hooks 与 Zustand store            |
+| `packages/client`、`packages/services`、`packages/shared`、`packages/rpc`、`packages/provider`、`packages/model-option-map`、`packages/provider-node`、`packages/zcode-cua` | UI 的运行时依赖链                                  |
+| `scripts`、`config`                                                                                                                                                         | 构建维护脚本与内置配置                             |
 
 ## ❓ 常见问题
 

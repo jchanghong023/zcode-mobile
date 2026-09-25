@@ -84,12 +84,12 @@
 
 - 定位手段：`Get-CimInstance Win32_Process`（找锁持有者、重复进程）+ 构建日志/工具自身输出区分阶段；网络下载与单文件编译的低 CPU 相位属于固有行为，重跑不会更快；其余情形一律杀掉重跑。
 
-## 项目定位与需求权威（Fork）
+## 项目定位与需求权威
 
-- 本仓库已精简为 **ZCode 的 Android 远程 App**：Capacitor 8 壳（`apps/android/`）+ web UI 构建链（`packages/web` 及其依赖 `ui`、`client`、`shared`、`services`、`rpc`、`provider`、`model-option-map`）。仓库不包含桌面端、Server、Agent CLI 与 omp。
+- 本仓库已精简为 **ZCode 的 Android 远程 App**：Capacitor 8 壳（`apps/android/`）+ web UI 构建链（`packages/web` 及其依赖 `ui`、`client`、`shared`、`services`、`rpc`、`provider`、`model-option-map`、`provider-node`、`zcode-cua`）。仓库不包含桌面端、Server、Agent CLI 与 omp。
 - 所有业务网络由 WebView 直连官方服务（`https://zcode.z.ai`）：同源 `/api`、`/ws` 由原生层放行直连，其余路径由本地资产响应（含 SPA 回退）。`/remote/v4` 链接由壳层转为本地 UI 的连接配置；v4 协议适配在 `packages/web`，壳层不实现或代理协议。
 - 需求权威文档是根目录 `FORK.md`；壳层行为规格见 `apps/android/SPEC.md`。
-- `packages/` 内保留的 8 个包保持与上游一致的目录组织；`packages/web` 的 v4 入口与 `packages/ui` 的手机视口侧栏行为属于本 Fork，其余保留包源码继续对照上游搬运。仓库其余目录已按 Android 需求精简，上游新增目录不自动纳入。
+- `packages/` 内保留的 10 个包保持与上游一致的目录组织；`packages/web` 的 v4 入口与 `packages/ui` 的手机视口侧栏行为属于本项目，其余保留包源码继续对照上游搬运。仓库其余目录已按 Android 需求精简，上游新增目录不自动纳入。
 
 ## 命令与仓库结构
 
@@ -111,7 +111,7 @@
 
 - `packages/web`：浏览器/WebView UI 入口（构建产物打进 APK）。
 - `packages/ui`：共享 React 组件、hooks 与 Zustand store。
-- `packages/client`、`packages/services`、`packages/rpc`、`packages/shared`、`packages/provider`、`packages/model-option-map`：UI 的运行时依赖链。
+- `packages/client`、`packages/services`、`packages/rpc`、`packages/shared`、`packages/provider`、`packages/model-option-map`、`packages/provider-node`、`packages/zcode-cua`：UI 的运行时依赖链。
 - `apps/android`：Android 宿主（Capacitor 配置、原生工程、构建脚本、SPEC）。
 - `DESIGN.md`：UI 设计规范；修改 UI 前阅读。
 

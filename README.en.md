@@ -85,15 +85,15 @@ The APK lands at `apps/android/android/app/build/outputs/apk/debug/app-debug.apk
 
 ## 🗂️ Repository Layout
 
-This repository is a slimmed-down fork of [zai-org/ZCode](https://github.com/zai-org/ZCode) `v3.14.3` that keeps only the web UI build chain the Android app needs; the desktop app, server, and Agent CLI are out of scope here.
+This is an independent project based on [zai-org/ZCode](https://github.com/zai-org/ZCode) `v3.14.3`. It keeps only the web UI build chain needed by the Android app; the desktop app, server, and Agent CLI are out of scope here.
 
-| Directory                                                                                                                   | Responsibility                                                 |
-| --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `apps/android`                                                                                                              | Android host (Capacitor config, native project, build scripts) |
-| `packages/web`                                                                                                              | Browser/WebView UI entry (its build output ships in the APK)   |
-| `packages/ui`                                                                                                               | Shared React components, hooks, and Zustand store              |
-| `packages/client`, `packages/services`, `packages/shared`, `packages/rpc`, `packages/provider`, `packages/model-option-map` | Runtime dependency chain of the UI                             |
-| `scripts`, `config`                                                                                                         | Build/maintenance scripts and built-in configuration           |
+| Directory                                                                                                                                                                   | Responsibility                                                 |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `apps/android`                                                                                                                                                              | Android host (Capacitor config, native project, build scripts) |
+| `packages/web`                                                                                                                                                              | Browser/WebView UI entry (its build output ships in the APK)   |
+| `packages/ui`                                                                                                                                                               | Shared React components, hooks, and Zustand store              |
+| `packages/client`, `packages/services`, `packages/shared`, `packages/rpc`, `packages/provider`, `packages/model-option-map`, `packages/provider-node`, `packages/zcode-cua` | Runtime dependency chain of the UI                             |
+| `scripts`, `config`                                                                                                                                                         | Build/maintenance scripts and built-in configuration           |
 
 ## ❓ FAQ
 

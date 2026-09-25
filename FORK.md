@@ -1,13 +1,13 @@
-# Fork 与上游差异
+# 与上游 ZCode 的差异
 
-本仓库源自上游 [zai-org/ZCode](https://github.com/zai-org/ZCode) 的 `main` 分支，已**大幅精简为 Android 远程 App 专用仓库**：Capacitor 8 壳（`apps/android/`）+ web UI 构建链。本页面向本人和 AI agent，只记录相对上游仍有效、对使用者有影响的差异，不记录实现细节或同步历史。开发规则见 `AGENTS.md`。
+本仓库是独立仓库，源自上游 [zai-org/ZCode](https://github.com/zai-org/ZCode) 的 `main` 分支，已**大幅精简为 Android 远程 App 专用仓库**：Capacitor 8 壳（`apps/android/`）+ web UI 构建链。本页面向本人和 AI agent，只记录相对上游仍有效、对使用者有影响的差异，不记录实现细节或同步历史。开发规则见 `AGENTS.md`。
 
 ## 当前上游基线
 
 - **分支**：`zai-org/ZCode@main`
 - **版本**：`v3.14.3`
-- **Upstream commit**：`328c1a0c0ffaa5a4f65e8fa199af5e4c20706e5f`
-- **同步日期**：2026-09-23（此后仓库形状已偏离上游，见下）
+- **Upstream commit**：`29628c9acdb81b703bbd4080c207a0e7ce5e276e`（已由 `26cf92b` 合入）
+- **核对日期**：2026-09-25（当前官方 `main`；保留包与该提交内容一致，另有下述本项目差异）
 
 ## 本仓库的定位
 
@@ -15,10 +15,10 @@
 
 ## 仓库精简（相对上游的形状差异）
 
-- **保留**：`packages/web` 及其构建依赖链（`ui`、`client`、`shared`、`services`、`rpc`、`provider`、`model-option-map`）、`apps/android`、根构建配置、`scripts/` 中 web 构建与治理所需脚本。
-- **删除**：`packages/desktop`、`packages/server`、`packages/zcode-server-cli`、`packages/provider-node`、`packages/formal-proof`、`packages/zcode-cua`、`apps/zcode-cli`、`third-party/`、`patches/`、`.github/`、桌面/分发相关脚本。
+- **保留**：`packages/web` 及其构建依赖链（`ui`、`client`、`shared`、`services`、`rpc`、`provider`、`model-option-map`、`provider-node`、`zcode-cua`）、`apps/android`、根构建配置、`scripts/` 中 web 构建与治理所需脚本。
+- **删除**：`packages/desktop`、`packages/server`、`packages/zcode-server-cli`、`packages/formal-proof`、`apps/zcode-cli`、`third-party/`、`patches/`、`.github/`、桌面/分发相关脚本。
 - **上游同步策略变化**：不再追求整仓库与上游一致。上游更新时按需把 kept 包的改动**对照搬运**进本仓库（以 `packages/` 为参考副本或 git 对照），而非直接覆盖整个 `packages/`（本仓库已删除其中部分目录）。
-- `packages/web` 的 v4 连接入口和 `packages/ui` 的手机视口侧栏行为属于本 Fork；其余保留包源码保持与上游一致，上游更新时需对照搬运这些差异。
+- `packages/web` 的 v4 连接入口和 `packages/ui` 的手机视口侧栏行为属于本项目；其余保留包源码保持与上游一致，上游更新时需对照搬运这些差异。
 
 ## 差异需求
 
