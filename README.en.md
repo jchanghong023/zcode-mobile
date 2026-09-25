@@ -14,11 +14,13 @@
 </div>
 
 <p align="center">
-  <img src="docs/screenshots/projects.jpg" width="260" alt="Projects: task sidebar" />
+  <img src="docs/screenshots/projects.jpg" width="200" alt="Projects: task sidebar" />
   &nbsp;
-  <img src="docs/screenshots/chat.jpg" width="260" alt="Chat: remote session" />
+  <img src="docs/screenshots/usage.jpg" width="200" alt="Projects: usage stats" />
   &nbsp;
-  <img src="docs/screenshots/settings.jpg" width="260" alt="Settings: remote connection" />
+  <img src="docs/screenshots/chat.jpg" width="200" alt="Chat: remote session" />
+  &nbsp;
+  <img src="docs/screenshots/settings.jpg" width="200" alt="Settings: remote connection" />
 </p>
 
 **ZCode Mobile** turns [ZCode](https://github.com/zai-org/ZCode) into a real Android app. Instead of wrangling a browser tab, you get a native shell with the entire UI bundled inside the APK: pages render from on-device assets with zero network round-trips, cold starts are instant, and scrolling stays smooth where the mobile web stumbles. Your desktop remains the execution host — your phone watches, steers, and takes over your AI coding sessions from anywhere.

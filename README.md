@@ -14,11 +14,13 @@
 </div>
 
 <p align="center">
-  <img src="docs/screenshots/projects.jpg" width="260" alt="项目页：任务侧栏" />
+  <img src="docs/screenshots/projects.jpg" width="200" alt="项目页：任务侧栏" />
   &nbsp;
-  <img src="docs/screenshots/chat.jpg" width="260" alt="聊天页：远程会话" />
+  <img src="docs/screenshots/usage.jpg" width="200" alt="项目页：使用统计" />
   &nbsp;
-  <img src="docs/screenshots/settings.jpg" width="260" alt="设置页：远程连接" />
+  <img src="docs/screenshots/chat.jpg" width="200" alt="聊天页：远程会话" />
+  &nbsp;
+  <img src="docs/screenshots/settings.jpg" width="200" alt="设置页：远程连接" />
 </p>
 
 **ZCode Mobile** 把 [ZCode](https://github.com/zai-org/ZCode) 变成一个真正的 Android App。不用再和浏览器标签页较劲：原生壳 + 完整内置的页面资源，页面从本机资产直接渲染、零网络往返，冷启动瞬间完成，滚动流畅度远超移动端网页。桌面端仍是执行主体——手机随时查看、指挥、接管你的 AI 编程会话。
