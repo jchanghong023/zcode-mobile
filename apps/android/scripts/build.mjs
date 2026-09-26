@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // apps/android 构建管线：web 生产构建 → cap sync →（可选）gradle assembleDebug。
-// 详见同目录 SPEC.md。packages/ 源码零改动，产物由 packages/web 构建后同步进 Android 工程。
+// 规格见 docs/requirements/ANDROID.md（仓库根目录）；产物由 packages/web 构建后同步进 Android 工程。
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";

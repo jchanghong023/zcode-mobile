@@ -86,16 +86,17 @@
 
 ## 项目定位与需求权威
 
-- 本仓库已精简为 **ZCode 的 Android 远程 App**：Capacitor 8 壳（`apps/android/`）+ web UI 构建链（`packages/web` 及其依赖 `ui`、`client`、`shared`、`services`、`rpc`、`provider`、`model-option-map`、`provider-node`、`zcode-cua`）。仓库不包含桌面端、Server、Agent CLI 与 omp。
-- 所有业务网络由 WebView 直连官方服务（`https://zcode.z.ai`）：同源 `/api`、`/ws` 由原生层放行直连，其余路径由本地资产响应（含 SPA 回退）。`/remote/v4` 链接由壳层转为本地 UI 的连接配置；v4 协议适配在 `packages/web`，壳层不实现或代理协议。
-- 需求权威文档是根目录 `FORK.md`；壳层行为规格见 `apps/android/SPEC.md`。
-- `packages/` 内保留的 10 个包保持与上游一致的目录组织；`packages/web` 的 v4 入口与 `packages/ui` 的手机视口侧栏行为属于本项目，其余保留包源码继续对照上游搬运。仓库其余目录已按 Android 需求精简，上游新增目录不自动纳入。
+- 本项目是持续跟踪 zai-org/ZCode main 的 Android Fork，由 AI Agent 实现和维护；不能依赖用户手工读代码或人工回归保证质量。
+- 固定需求目录为 [docs/requirements/](docs/requirements/FORK.md)：FORK.md 维护全局范围与上游基线，ANDROID.md 维护宿主与平台需求，REMOTE.md 维护手机远控需求。具体行为与规划只在对应需求文档维护。
+- 需求或预期用户可见行为变化时，先检查并同步对应文档；按功能边界选文档，新独立功能域可新增文档。目录或权威体系缺失时先补齐，再改实现。仅实现方式变化不制造需求变更，也不能改写需求来合理化实现缺陷。入口、命令和开发规则变化时同步本文件。
+- 上游更新只对照搬运保留包的必要改动，不覆盖整个 packages 或重新纳入已删除目录。新增、修改或取消本地差异需求时同步需求目录；同步后逐项核对仍有效的需求，不能只检查 Git 冲突。
+- 已获授权的上游同步须先保全本地改动与需求；在上述范围内优先可靠合并，难解的冲突可基于相关部分的上游实现，按需求重新实现。不得丢弃无关改动、覆盖唯一需求依据或重置全仓；重建必须通过相应 UT 与 E2E，未通过不能声称同步完成。
 
 ## 命令与仓库结构
 
 开工前运行 `node scripts/check-workspace-freshness.mjs` 检查基线。Node 版本以 `mise.toml` 为准。
 
-以下命令从仓库根目录执行：
+以下命令从仓库根目录执行；先安装 mise.toml 指定的 Node/pnpm 与 workspace 依赖。以下为仓库定义的入口，不代表本次全部运行验证：
 
 | 用途             | 命令                                              |
 | ---------------- | ------------------------------------------------- |
@@ -112,16 +113,16 @@
 - `packages/web`：浏览器/WebView UI 入口（构建产物打进 APK）。
 - `packages/ui`：共享 React 组件、hooks 与 Zustand store。
 - `packages/client`、`packages/services`、`packages/rpc`、`packages/shared`、`packages/provider`、`packages/model-option-map`、`packages/provider-node`、`packages/zcode-cua`：UI 的运行时依赖链。
-- `apps/android`：Android 宿主（Capacitor 配置、原生工程、构建脚本、SPEC）。
+- `apps/android`：Android 宿主（Capacitor 配置、原生工程与构建脚本）。
 - `DESIGN.md`：UI 设计规范；修改 UI 前阅读。
 
 ## 实现与验证
 
 - 代码改动使用 `.agents/skills/architecture-governance/SKILL.md`，先运行架构检查，再读取目标模块的受控上下文。
 - 避免重复状态和多条写入路径。明确唯一所有者、接口、依赖方向与事件顺序。
-- 壳层改动先更新 `apps/android/SPEC.md`；需求变化同步 `FORK.md`。
-- 必须执行 `pnpm typecheck` 和 `pnpm lint`，报告真实结果，不将已有失败写成通过。
-- Android 侧行为改动必须在真机或模拟器实测后才能宣称完成。
+- 壳层行为改动先更新 `docs/requirements/ANDROID.md`；远控行为变化同步 `docs/requirements/REMOTE.md`，全局范围变化同步 `docs/requirements/FORK.md`。
+- 代码改动必须执行 `pnpm typecheck` 和 `pnpm lint`，报告真实结果，不将已有失败写成通过。纯文档等非功能性变更按实际影响核对差异与引用，不强制运行无关完整测试。
+- Android 侧行为改动必须在真机或模拟器实测后才能宣称完成，并通过 `pnpm architecture:check -- --changed` 与 `pnpm fmt:check`。
 - 修复 bug 时用中文注释说明原因和修复依据。发现设计缺陷时先与用户对齐，不不断增加兜底分支。
 - 使用异步文件和网络 IO；跨包导入使用公开入口，遵守现有路径别名。
 - 禁止 UI 直接调用 Repo、Service 引用 Runtime 具体实现、跨域导入实现细节及循环依赖。
@@ -135,10 +136,29 @@
 
 ## Android 壳层边界（apps/android）
 
-- 壳层只做 UI 宿主与平台适配（返回键、下载、键盘 insets、深链、预热），不承载业务状态；请求分流唯一所有者是 `ZCodeWebViewClient`。
+- 平台职责见 `docs/requirements/ANDROID.md`；请求分流唯一所有者是 `ZCodeWebViewClient`，平台适配由 `MainActivity` 与保存文件插件处理。
 - 应用同源身份来自 `capacitor.config.ts` 的 `server.hostname`（取自 `@zcode/shared/zcodeEndpoint`），不手写域名。
-- 不向 web 注入业务 JS，不缓存 API 响应，不新增对官方响应的兜底改写。
-- 壳层改动前先读 `apps/android/SPEC.md`；平台行为必须在真机验证。
+- 壳层改动前先读 `docs/requirements/ANDROID.md`；平台行为必须在真机验证。
+
+## 核心入口与构建约束
+
+- Web 启动：packages/web/src/main.tsx；v4 分流：src/remote-v4/entry.tsx；连接、恢复、页面分别在同目录 connection.ts、connectionRecovery.ts、MobileRemoteApp.tsx。连接服务按 `v4-<bridgeSessionId>` 注册 remote workspace session 并绑定 workspaceIdentity，断开/换代时注销。
+- Android/v4 新实现集中在 packages/web/src/remote-v4/；UI 适配集中在 packages/ui/src/v4/mobileRemoteShell.ts、MobileSidebarChrome.tsx 和 src/root/initialWorkspaceTabs.ts。上游组件只保留必要引用；其余保留包源码继续对照上游搬运。
+- Android 入口：apps/android/android/app/src/main/java/dev/jchanghong/zcode/ 下的 MainActivity.java、ZCodeWebViewClient.java、BlobSavePlugin.java；配置在 apps/android/capacitor.config.ts。
+- 构建脚本 apps/android/scripts/build.mjs 强制 ZCODE_ENV=production 构建 web，再 cap sync、剥离资产副本中的 map；生成目录 android/app/src/main/assets/public 不手工编辑。根 pnpm build:android 已传 --apk，输出 apps/android/android/app/build/outputs/apk/debug/app-debug.apk。
+- Android 构建需 JDK 21（JAVA_HOME 或用户 ~/.gradle/gradle.properties 的 org.gradle.java.home）与 Android SDK（apps/android/android/local.properties 的 sdk.dir），机器配置不入库。当前 minSdk/compileSdk/targetSdk 在 android/variables.gradle 中为 24/36/36；以配置为准，不将当前值当作新产品承诺。
+- 键盘布局采用 MainActivity 单点 insets 处理，关闭 Capacitor SystemBars.insetsHandling；保留 adjustResize 支持 API<30，避免原始 IME insets 重复叠加。
+- debug 的本地 mock 中继测试可使用测试 CA、adb root、iptables 443 重定向与 adb reverse；这只是调试条件，不代表已有可复用 E2E 套件或真实官方边界已验证。
+
+## 自动化测试与当前缺口
+
+- 功能开发和功能性修改必须有自动化验证：UT 验证局部逻辑，E2E 从真实公开入口验证到可观察结果；跨模块交互按需增加集成测试。可复用有效覆盖，不机械新增重复测试。
+- UT、编译、静态检查与局部模拟不能替代 E2E。测试对应需求和验收条件，覆盖核心成功路径与关键失败路径，不能只复述实现或确认未崩溃。使用桩/模拟须说明未经验证的真实边界。
+- 区分已实现、验证通过、验证失败与未验证；环境、依赖、设备或权限不足须明确未验证范围，不能称功能已验收。Android 平台还须真机验证，不能让用户人工回归承担质量保证。
+- 当前没有根 test 脚本。Node node:test 用例位于 packages/web/test、packages/ui/test、packages/services/test；根目录可用已声明的 tsx 运行：pnpm exec tsx --test packages/web/test/*.test.ts（其余两目录同理，需相应依赖与构建产物）。此入口依据测试源码及依赖恢复，本次未运行确认。
+- web 用例覆盖项目去重、连接取消、断线与重试分类，FakeWebSocket 不等于真实中继测试。services 用例含临时文件/恢复等局部集成验证，不能覆盖手机业务链路。
+- Android 有 Gradle/JUnit 示例入口：在 apps/android/android 中运行 .\gradlew.bat testDebugUnitTest；有设备时运行 .\gradlew.bat connectedDebugAndroidTest（非 Windows 使用 ./gradlew）。本次未执行。当前 UT 只验证 2+2；仪器示例仍断言旧包名 com.getcapacitor.app，与实际 dev.jchanghong.zcode 不符，尚未修复且不能算有效业务验证。
+- 未发现本项目可复用的完整 Android 远控 E2E 运行脚本，也未发现独立业务集成测试总入口。后续功能开发须补足涉及配对、项目切换、消息、后台恢复、文件与平台行为的自动化覆盖；本次文档整理不扩展为测试实现。
 
 ## 日志
 

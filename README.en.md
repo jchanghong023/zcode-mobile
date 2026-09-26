@@ -111,7 +111,7 @@ A working ZCode account and a remote pairing link produced by the desktop app's 
 
 ## 🔎 Relationship to Upstream
 
-- [FORK.md](FORK.md) records the upstream baseline, the effective differences from upstream, and the sync policy; [apps/android/SPEC.md](apps/android/SPEC.md) is the Android shell behavior spec.
+- [FORK.md](docs/requirements/FORK.md) records the upstream baseline and effective differences (sync rules are in AGENTS.md); [ANDROID.md](docs/requirements/ANDROID.md) is the Android shell behavior spec.
 - Upstream updates are ported selectively into the retained packages by comparison; the repository is never overwritten wholesale.
 
 ## 📄 License & Notices

@@ -111,7 +111,7 @@ APK 输出在 `apps/android/android/app/build/outputs/apk/debug/app-debug.apk`�
 
 ## 🔎 与上游的关系
 
-- [FORK.md](FORK.md) 记录上游基线、相对上游的有效差异与同步策略；[apps/android/SPEC.md](apps/android/SPEC.md) 是 Android 壳层行为规格。
+- [FORK.md](docs/requirements/FORK.md) 记录上游基线与相对上游的有效差异（同步规则见 AGENTS.md）；[ANDROID.md](docs/requirements/ANDROID.md) 是 Android 壳层行为规格。
 - 上游更新时按需把保留包的改动对照搬运进本仓库，不做整仓覆盖。
 
 ## 📄 许可与声明
