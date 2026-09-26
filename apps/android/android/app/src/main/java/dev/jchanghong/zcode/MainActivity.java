@@ -1,8 +1,11 @@
 package dev.jchanghong.zcode;
 
+import android.Manifest;
 import android.app.DownloadManager;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.View;
@@ -10,12 +13,16 @@ import android.webkit.CookieManager;
 import android.webkit.URLUtil;
 import android.webkit.WebView;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.activity.OnBackPressedCallback;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
+import java.util.ArrayDeque;
 
 /**
  * 只做 UI 宿主与平台适配（返回键、下载、insets、深链），不承载业务状态；
@@ -27,11 +34,28 @@ public class MainActivity extends BridgeActivity {
     private static final String SHELL_PREFS = "zcode_shell";
     private static final String KEY_LAST_REMOTE_URL = "lastRemoteUrl";
     private NativeNavigation nativeNavigation;
+    private final ArrayDeque<DownloadManager.Request> pendingDownloads = new ArrayDeque<>();
+    private boolean requestingStoragePermission;
+    private final ActivityResultLauncher<String> storagePermissionLauncher = registerForActivityResult(
+        new ActivityResultContracts.RequestPermission(),
+        granted -> {
+            requestingStoragePermission = false;
+            if (!granted) {
+                pendingDownloads.clear();
+                Toast.makeText(this, "未获得存储权限，无法下载文件", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            while (!pendingDownloads.isEmpty()) {
+                enqueueDownload(pendingDownloads.removeFirst());
+            }
+        }
+    );
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // 冷启动最早时刻触发 WebView 进程/renderer/官方域名连接预热（失败静默降级）。
         WebViewWarmup.warmUp(this);
+        registerPlugin(BlobSavePlugin.class);
         super.onCreate(savedInstanceState);
         if (bridge == null) {
             return;
@@ -128,7 +152,14 @@ public class MainActivity extends BridgeActivity {
         webView.setDownloadListener(
             (url, userAgent, contentDisposition, mimeType, contentLength) -> {
                 try {
-                    DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                    Uri source = Uri.parse(url);
+                    if (!"https".equalsIgnoreCase(source.getScheme()) &&
+                        !"http".equalsIgnoreCase(source.getScheme())) {
+                        // blob 文件通过平台保存能力写入用户选择的位置；DownloadManager 只能处理网络 URI。
+                        Toast.makeText(MainActivity.this, "无法下载此类型的链接", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    DownloadManager.Request request = new DownloadManager.Request(source);
                     String cookies = CookieManager.getInstance().getCookie(url);
                     if (cookies != null) {
                         request.addRequestHeader("Cookie", cookies);
@@ -140,13 +171,34 @@ public class MainActivity extends BridgeActivity {
                     request.setNotificationVisibility(
                         DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
                     );
-                    DownloadManager manager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-                    manager.enqueue(request);
+                    if (
+                        Build.VERSION.SDK_INT <= 28 &&
+                        ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                            PackageManager.PERMISSION_GRANTED
+                    ) {
+                        // API 24–28 的公共 Downloads 写入需要运行时授权；保留用户已发起的下载。
+                        pendingDownloads.addLast(request);
+                        if (!requestingStoragePermission) {
+                            requestingStoragePermission = true;
+                            storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+                        }
+                        return;
+                    }
+                    enqueueDownload(request);
                 } catch (Exception error) {
                     Toast.makeText(MainActivity.this, "下载失败：" + error.getMessage(), Toast.LENGTH_LONG).show();
                 }
             }
         );
+    }
+
+    private void enqueueDownload(DownloadManager.Request request) {
+        try {
+            DownloadManager manager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            manager.enqueue(request);
+        } catch (Exception error) {
+            Toast.makeText(this, "下载失败：" + error.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     /**

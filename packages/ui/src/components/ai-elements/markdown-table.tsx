@@ -27,6 +27,7 @@ import {
 import { toast } from "@/components/ui/toast.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useOptionalPlatform } from "@/hooks/usePlatform.js";
 
 type MarkdownTableNodeProp = {
   node?: unknown;
@@ -398,6 +399,7 @@ export type MarkdownTableProps = ComponentProps<"table"> & MarkdownTableNodeProp
 
 export function MarkdownTable({ className, children, node: _node, ...props }: MarkdownTableProps) {
   const { intl } = useZCodeIntl();
+  const platform = useOptionalPlatform();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [expandedScrollEnabled, setExpandedScrollEnabled] = useState(false);
   const [canToggleExpandedScroll, setCanToggleExpandedScroll] = useState(false);
@@ -1123,7 +1125,7 @@ export function MarkdownTable({ className, children, node: _node, ...props }: Ma
     }
   }, [getRows, intl]);
 
-  const handleDownloadCsv = useCallback(() => {
+  const handleDownloadCsv = useCallback(async () => {
     if (
       typeof document === "undefined" ||
       typeof Blob === "undefined" ||
@@ -1137,6 +1139,18 @@ export function MarkdownTable({ className, children, node: _node, ...props }: Ma
     const blob = new Blob([buildCsvTableText(getRows())], {
       type: "text/csv;charset=utf-8",
     });
+    if (platform?.saveFile) {
+      // 安卓 WebView 生成的 blob: 地址不属于网络 URI，交给平台保存文件能力。
+      try {
+        const result = await platform.saveFile({ data: await blob.arrayBuffer(), suggestedName: "table.csv" });
+        if (!result.success && !result.canceled) {
+          toast(intl.formatMessage({ id: "markdownTable.downloadFailed" }));
+        }
+      } catch {
+        toast(intl.formatMessage({ id: "markdownTable.downloadFailed" }));
+      }
+      return;
+    }
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -1145,7 +1159,7 @@ export function MarkdownTable({ className, children, node: _node, ...props }: Ma
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-  }, [getRows, intl]);
+  }, [getRows, intl, platform]);
   const handleToggleExpandedScroll = useCallback(() => {
     const nextExpandedScrollEnabled = !expandedScrollEnabledRef.current;
     commitExpandedScrollEnabled(nextExpandedScrollEnabled);

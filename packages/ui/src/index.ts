@@ -8,6 +8,8 @@ export {
   useAssistantCodeCommentFeatureEnabled,
 } from "./AssistantCodeCommentFeatureProvider.js";
 export { Root } from "./Root.js";
+export { onMobileRemoteWorkspaceRequest } from "./v4/mobileRemoteShell.js";
+export type { MobileRemoteWorkspaceRequest } from "./v4/mobileRemoteShell.js";
 export { UpdateStatusWindowRoot } from "./UpdateStatusWindowRoot.js";
 export { ConfirmDialogHost } from "./ConfirmDialog.js";
 export { Terminal } from "./Terminal.js";

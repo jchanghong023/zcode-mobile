@@ -17,6 +17,16 @@ interface Workspace {
   remoteSessionId?: string;
 }
 
+export interface V4WorkspaceTarget {
+  workspacePath: string;
+  workspaceIdentity?: string;
+}
+
+export interface V4ConnectionOptions {
+  workspace?: V4WorkspaceTarget;
+  taskId?: string;
+}
+
 export interface V4Connection {
   services: ReturnType<typeof connectViaProtocol>;
   bridge: Bridge;
@@ -76,6 +86,7 @@ export async function connectV4Remote(
   params: URLSearchParams,
   onDisconnect: (error: Error) => void,
   signal?: AbortSignal,
+  options?: V4ConnectionOptions,
 ): Promise<V4Connection> {
   const pairing = parseV4Pairing(params);
   if (!pairing) throw new Error("Invalid v4 remote link");
@@ -213,11 +224,17 @@ export async function connectV4Remote(
           ...(item.workspaceIdentity ? { workspaceIdentity: item.workspaceIdentity } : {}),
         }));
         const preferred = result?.mobileViewState ?? result?.initialViewState;
-        const workspace =
-          available.find((item) => workspaceKey(item) === preferred?.activeWorkspaceKey) ??
-          available[0];
+        const requested = options?.workspace;
+        const workspace = requested
+          ? available.find(
+              (item) =>
+                item.workspacePath === requested.workspacePath &&
+                (item.workspaceIdentity ?? undefined) === (requested.workspaceIdentity ?? undefined),
+            )
+          : (available.find((item) => workspaceKey(item) === preferred?.activeWorkspaceKey) ??
+            available[0]);
         if (!workspace) {
-          fail(new Error("No bridgeable desktop workspace"));
+          fail(new Error(requested ? "所选项目当前不可连接" : "No bridgeable desktop workspace"));
           return;
         }
         pendingRequestId = crypto.randomUUID();
@@ -229,7 +246,11 @@ export async function connectV4Remote(
           bridgeSessionId,
           bridgeGeneration: 1,
           workspaceKey: workspaceKey(workspace),
-          ...(preferred?.activeTaskId ? { taskId: preferred.activeTaskId } : {}),
+          ...(options?.taskId
+            ? { taskId: options.taskId }
+            : preferred?.activeTaskId && workspaceKey(workspace) === preferred.activeWorkspaceKey
+              ? { taskId: preferred.activeTaskId }
+              : {}),
         });
         return;
       }

@@ -74,9 +74,14 @@ test("canceled pairing closes its socket; an established network loss is retryab
     assert.equal(canceledDisconnects, 0);
 
     let disconnectReason: Error | null = null;
-    const connected = connectV4Remote(params, (reason) => {
-      disconnectReason = reason;
-    });
+    const connected = connectV4Remote(
+      params,
+      (reason) => {
+        disconnectReason = reason;
+      },
+      undefined,
+      { workspace: { workspacePath: "/other", workspaceIdentity: "host-b" }, taskId: "task-b" },
+    );
     const socket = sockets[1]!;
     socket.open();
     socket.emit("message", { type: "auth_ack", pair_status: "matched" });
@@ -86,13 +91,23 @@ test("canceled pairing closes its socket; an established network loss is retryab
       payload: {
         zcode_type: "bootstrap-response",
         requestId: bootstrap.requestId,
-        result: { workspaces: [{ kind: "local", workspacePath: "/work" }] },
+        result: {
+          workspaces: [
+            { kind: "local", workspacePath: "/work" },
+            { kind: "remote", workspacePath: "/other", workspaceIdentity: "host-b", remoteSessionId: "remote-b" },
+          ],
+          mobileViewState: { activeWorkspaceKey: "/work", activeTaskId: "task-a" },
+        },
       },
     });
     const open = socket.sent.at(-1)?.payload as {
       requestId: string;
       bridgeSessionId: string;
+      workspaceKey: string;
+      taskId: string;
     };
+    assert.equal(open.workspaceKey, "host-b");
+    assert.equal(open.taskId, "task-b");
     socket.emit("message", {
       type: "data",
       payload: {
@@ -101,8 +116,9 @@ test("canceled pairing closes its socket; an established network loss is retryab
         bridge: {
           bridgeSessionId: open.bridgeSessionId,
           bridgeGeneration: 1,
-          workspaceKey: "/work",
-          workspacePath: "/work",
+          workspaceKey: "host-b",
+          workspacePath: "/other",
+          workspaceIdentity: "host-b",
         },
       },
     });

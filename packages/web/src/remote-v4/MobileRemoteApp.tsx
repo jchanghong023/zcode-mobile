@@ -4,11 +4,12 @@ import {
   Root,
   ZCodeIntlProvider,
   registerRemoteWorkspaceSession,
+  onMobileRemoteWorkspaceRequest,
   unregisterRemoteWorkspaceSession,
   useRemoteWorkspaceSessionStore,
 } from "@zcode/ui";
 import type { IPlatformService } from "@zcode/shared";
-import { connectV4Remote, type V4Connection } from "./connection.js";
+import { connectV4Remote, type V4Connection, type V4WorkspaceTarget } from "./connection.js";
 import {
   isRetryableRemoteError,
   RemoteConnectionError,
@@ -17,6 +18,7 @@ import {
   retryDelayMs,
 } from "./connectionRecovery.js";
 import "./mobile.css";
+import { buildMobileRemoteWorkspaceTabs } from "./workspaceTabs.js";
 
 interface Props {
   params: URLSearchParams;
@@ -43,7 +45,11 @@ export function MobileRemoteApp({ params, platform }: Props) {
   const [connection, setConnection] = useState<V4Connection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [recentProjects, setRecentProjects] = useState<ReadonlyArray<string>>([]);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
   const activeConnection = useRef<V4Connection | null>(null);
+  const requestedWorkspace = useRef<V4WorkspaceTarget | null>(null);
+  const requestedTaskId = useRef<string | null>(null);
+  const navigateAfterSelection = useRef(false);
   const pendingConnect = useRef<AbortController | null>(null);
   const retryTimer = useRef<number | null>(null);
   const failedAttempts = useRef(0);
@@ -82,6 +88,7 @@ export function MobileRemoteApp({ params, platform }: Props) {
     if (!mounted.current || pendingConnect.current || activeConnection.current) return;
     clearRetry();
     setError(null);
+    setSelectionError(null);
     setRecentProjects([]);
     const abort = new AbortController();
     pendingConnect.current = abort;
@@ -97,6 +104,10 @@ export function MobileRemoteApp({ params, platform }: Props) {
           handleFailure(reason);
         },
         abort.signal,
+        {
+          ...(requestedWorkspace.current ? { workspace: requestedWorkspace.current } : {}),
+          ...(requestedTaskId.current ? { taskId: requestedTaskId.current } : {}),
+        },
       );
     } catch (reason) {
       if (pendingConnect.current === abort) pendingConnect.current = null;
@@ -121,6 +132,7 @@ export function MobileRemoteApp({ params, platform }: Props) {
     }
     teardownConnection(activeConnection.current);
     activeConnection.current = next;
+    requestedTaskId.current = null;
     failedAttempts.current = 0;
     automaticRetry.current = true;
     // v4 工作区带 identity，会被 workspace services 判定为 remote 目标；
@@ -137,6 +149,11 @@ export function MobileRemoteApp({ params, platform }: Props) {
       sessionRegistry.bindWorkspacePath(next.bridge.workspacePath, remoteSessionIdOf(next));
     }
     setConnection(next);
+    if (navigateAfterSelection.current) {
+      navigateAfterSelection.current = false;
+      window.location.hash = "chat";
+      setTab("chat");
+    }
     // 桌面端最近项目是项目页列表的兜底数据源；读取失败不阻塞主连接。
     try {
       const settings = await next.services.settingService.get();
@@ -228,6 +245,41 @@ export function MobileRemoteApp({ params, platform }: Props) {
       }
       resumeConnection(true);
     };
+    const disposeWorkspaceRequest = onMobileRemoteWorkspaceRequest((event) => {
+      const current = activeConnection.current;
+      if (!current) return;
+      const target = event.detail;
+      if (
+        current.bridge.workspacePath === target.workspacePath &&
+        (current.bridge.workspaceIdentity ?? undefined) ===
+          (target.workspaceIdentity ?? undefined)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      if (
+        !current.availableWorkspaces.some(
+          (item) =>
+            item.workspacePath === target.workspacePath &&
+            (item.workspaceIdentity ?? undefined) === (target.workspaceIdentity ?? undefined),
+        )
+      ) {
+        setSelectionError("该项目当前未在桌面端打开，无法连接");
+        return;
+      }
+      // 项目切换只有远控入口能换桥接；先注销旧代服务再发起新连接，
+      // 避免 UI 把新项目误路由到旧工作区并渲染空白聊天。
+      requestedWorkspace.current = {
+        workspacePath: target.workspacePath,
+        ...(target.workspaceIdentity ? { workspaceIdentity: target.workspaceIdentity } : {}),
+      };
+      requestedTaskId.current = target.taskId ?? null;
+      navigateAfterSelection.current = true;
+      activeConnection.current = null;
+      teardownConnection(current);
+      setConnection(null);
+      connectRef.current();
+    });
     window.addEventListener("hashchange", updateTab);
     window.addEventListener("online", onOnline);
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -242,20 +294,15 @@ export function MobileRemoteApp({ params, platform }: Props) {
       window.removeEventListener("hashchange", updateTab);
       window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      disposeWorkspaceRequest();
     };
   }, [clearRetry, connect, probeConnection, replaceStaleConnection]);
 
-  // 项目页完整列表 = 桥接/可桥接工作区（带 identity）+ 桌面端最近项目（path 兜底），按路径去重。
-  const initialWorkspaceTabs = useMemo(() => {
-    const byPath = new Map<string, { workspacePath: string; workspaceIdentity?: string }>();
-    for (const item of connection?.availableWorkspaces ?? []) {
-      byPath.set(item.workspacePath, item);
-    }
-    for (const path of recentProjects) {
-      if (path && !byPath.has(path)) byPath.set(path, { workspacePath: path });
-    }
-    return [...byPath.values()];
-  }, [connection, recentProjects]);
+  // 项目页完整列表 = 桥接/可桥接工作区（按身份和路径去重）+ 桌面端最近项目（path 兜底）。
+  const initialWorkspaceTabs = useMemo(
+    () => buildMobileRemoteWorkspaceTabs(connection?.availableWorkspaces ?? [], recentProjects),
+    [connection, recentProjects],
+  );
 
   return (
     <div
@@ -303,6 +350,11 @@ export function MobileRemoteApp({ params, platform }: Props) {
           ) : null}
         </div>
       )}
+      {selectionError ? (
+        <div role="alert" className="absolute inset-x-3 top-3 z-50 rounded-lg border border-border bg-surface px-3 py-2 text-ui-sm text-foreground">
+          {selectionError}
+        </div>
+      ) : null}
     </div>
   );
 }

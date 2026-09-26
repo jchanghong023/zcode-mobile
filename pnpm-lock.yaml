@@ -440,6 +440,9 @@ importers:
 
   packages/web:
     dependencies:
+      '@capacitor/core':
+        specifier: ^8.0.0
+        version: 8.5.2
       '@zcode/client':
         specifier: workspace:*
         version: link:../client

@@ -12,7 +12,11 @@ import { TID_APP_HEADER } from "@zcode/shared";
 // 对称下侧 Terminal.tsx 的 openWorkspaceKeys 回收。
 import { sidePaneTerminalSessionRegistry } from "@/terminal/sidePaneTerminalSessionRegistry.js";
 import { MobileSidebarBackdrop } from "@/v4/MobileSidebarChrome.js";
-import { isMobileRemoteV4Page, navigateToMobileChatTab } from "@/v4/mobileRemoteShell.js";
+import {
+  isMobileRemoteV4Page,
+  navigateToMobileChatTab,
+  requestMobileRemoteWorkspace,
+} from "@/v4/mobileRemoteShell.js";
 import { V4ChatPane } from "@/v4/V4ChatPane.js";
 import { V4WorkspaceChatArea } from "@/v4/V4WorkspaceChatArea.js";
 import {
@@ -888,6 +892,18 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
       targetRemoteSessionId?: string,
       expectedUnreadAt?: number,
     ) => {
+      // 安卓项目页中的任务可能属于尚未桥接的工作区；先交给远控入口换桥接，
+      // 否则直接激活 tab 会让会话停在 remote-waiting 并显示空白聊天区。
+      if (
+        isMobileRemoteV4 &&
+        requestMobileRemoteWorkspace({
+          workspacePath: targetWorkspacePath,
+          ...(targetWorkspaceIdentity ? { workspaceIdentity: targetWorkspaceIdentity } : {}),
+          taskId,
+        })
+      ) {
+        return;
+      }
       {
         const workspaceResult = ensureTaskNavigationWorkspace({
           workspacePath: targetWorkspacePath,

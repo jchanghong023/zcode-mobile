@@ -13,3 +13,28 @@ export function isMobileRemoteV4Page(): boolean {
 export function navigateToMobileChatTab(): void {
   window.location.hash = "chat";
 }
+
+export interface MobileRemoteWorkspaceRequest {
+  workspacePath: string;
+  workspaceIdentity?: string;
+  taskId?: string;
+}
+
+const MOBILE_REMOTE_WORKSPACE_REQUEST = "zcode:mobile-remote-workspace-request";
+
+/** 返回 true 表示远控入口已接管跨项目桥接，调用方不能先切入未连接的聊天页。 */
+export function requestMobileRemoteWorkspace(request: MobileRemoteWorkspaceRequest): boolean {
+  const event = new CustomEvent<MobileRemoteWorkspaceRequest>(MOBILE_REMOTE_WORKSPACE_REQUEST, {
+    cancelable: true,
+    detail: request,
+  });
+  window.dispatchEvent(event);
+  return event.defaultPrevented;
+}
+
+export function onMobileRemoteWorkspaceRequest(
+  listener: (event: CustomEvent<MobileRemoteWorkspaceRequest>) => void,
+): () => void {
+  window.addEventListener(MOBILE_REMOTE_WORKSPACE_REQUEST, listener as EventListener);
+  return () => window.removeEventListener(MOBILE_REMOTE_WORKSPACE_REQUEST, listener as EventListener);
+}

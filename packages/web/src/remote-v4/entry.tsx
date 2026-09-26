@@ -3,6 +3,7 @@
 import type { createRoot } from "react-dom/client";
 import type { IPlatformService } from "@zcode/shared";
 import { MobileRemoteApp } from "./MobileRemoteApp.js";
+import { withAndroidFileSave } from "./androidFileSave.js";
 
 export function renderMobileRemoteAppIfRequested(
   params: URLSearchParams,
@@ -13,6 +14,6 @@ export function renderMobileRemoteAppIfRequested(
     return false;
   }
   document.title = "ZCode - Remote";
-  root.render(<MobileRemoteApp params={params} platform={createPlatform()} />);
+  root.render(<MobileRemoteApp params={params} platform={withAndroidFileSave(createPlatform())} />);
   return true;
 }

@@ -9,6 +9,7 @@
     "lint:fix": "oxlint --fix"
   },
   "dependencies": {
+    "@capacitor/core": "^8.0.0",
     "@zcode/client": "workspace:*",
     "@zcode/rpc": "workspace:*",
     "@zcode/shared": "workspace:*",

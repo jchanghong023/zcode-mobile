@@ -336,6 +336,12 @@ export function ImagePreviewDialog({
           suggestedName: `${safeDownloadBaseName(activeItem)}.png`,
         });
         if (result.canceled) return;
+        if (result.error === "source_url_not_supported") {
+          // 安卓平台保存能力只接收已在 WebView 内存中的字节；网络图片仍走原生下载监听器。
+          startBrowserNativeDownload(activeItem.src);
+          toast(intl.formatMessage({ id: "markdownImage.downloadStarted" }));
+          return;
+        }
         if (!result.success || !result.path) throw new Error(result.error || "save_failed");
         toast(intl.formatMessage({ id: "markdownImage.downloadSucceeded" }, { path: result.path }));
         return;
